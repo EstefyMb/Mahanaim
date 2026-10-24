@@ -9,7 +9,8 @@ import SundayHistory from './components/SundayHistory';
 import NewSongModal from './components/NewSongModal';
 import EditSongModal from './components/EditSongModal';
 import SettingsModal from './components/SettingsModal';
-import LoginView from './components/LoginView';
+import AuthView from './components/AuthView';
+import multiTenantService from './services/multiTenantService';
 import { 
   INITIAL_SONGS, 
   SUNDAY_HISTORY, 
@@ -44,68 +45,42 @@ export default function App() {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // 2. Church Identity & Profile Settings
+  // 2. Multi-Tenant Session & Active Church
+  const [session, setSession] = useState(() => {
+    return multiTenantService.getSession();
+  });
+
+  const activeChurchId = session?.churchId || null;
+
+  // 3. Church Identity & Profile Settings (Strictly isolated per Church)
   const [churchSettings, setChurchSettings] = useState(() => {
-    const saved = localStorage.getItem('worship_church_settings');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+    if (activeChurchId) {
+      return multiTenantService.getSettings(activeChurchId);
     }
     return DEFAULT_CHURCH_SETTINGS;
   });
 
   const handleSaveSettings = (newSettings) => {
     setChurchSettings(newSettings);
-    localStorage.setItem('worship_church_settings', JSON.stringify(newSettings));
+    if (session?.churchId) {
+      multiTenantService.saveSettings(session.churchId, newSettings);
+    }
     showToast('Configuración e identidad de la iglesia guardadas.', 'success');
   };
 
-  // 3. Team Authentication & Session State
-  const [session, setSession] = useState(() => {
-    const saved = localStorage.getItem('worship_session');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return {
-      isAuthenticated: false,
-      email: churchSettings?.sharedEmail || 'equipo@alabanza.org',
-      userName: churchSettings?.name || 'Equipo de Alabanza'
-    };
-  });
-
-  const handleLogin = (sessionData) => {
-    const newSession = {
-      isAuthenticated: true,
-      email: sessionData.email,
-      userName: sessionData.userName
-    };
-    setSession(newSession);
-    if (sessionData.rememberSession) {
-      localStorage.setItem('worship_session', JSON.stringify(newSession));
-    }
-    showToast(`¡Bienvenido al portal de ${churchSettings.name}!`, 'success');
-  };
-
-  const handleLogout = () => {
-    setSession({
-      isAuthenticated: false,
-      email: session?.email || churchSettings?.sharedEmail || 'equipo@alabanza.org'
-    });
-    localStorage.removeItem('worship_session');
-    showToast('Sesión de equipo cerrada.', 'info');
-  };
-
-  // 3. Songs Repertoire (CRUD & Persistence)
+  // 4. Songs Repertoire (Strictly isolated per Church)
   const [songs, setSongs] = useState(() => {
-    const saved = localStorage.getItem('worship_songs');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+    if (activeChurchId) {
+      return multiTenantService.getSongs(activeChurchId);
     }
-    return INITIAL_SONGS;
+    return [];
   });
 
   const persistSongs = (updatedSongs) => {
     setSongs(updatedSongs);
-    localStorage.setItem('worship_songs', JSON.stringify(updatedSongs));
+    if (session?.churchId) {
+      multiTenantService.saveSongs(session.churchId, updatedSongs);
+    }
   };
 
   // Helper for upcoming Sunday date
@@ -118,35 +93,75 @@ export default function App() {
     return nextSunday.toISOString().split('T')[0];
   };
 
-  // 4. Flexible Setlist Builder State (Supports 5, 6, 7 or more songs)
+  // 5. Flexible Setlist Builder State (Strictly isolated per Church)
   const [slots, setSlots] = useState(() => {
-    const saved = localStorage.getItem('worship_flexible_slots');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+    if (activeChurchId) {
+      return multiTenantService.getSlots(activeChurchId);
     }
     return DEFAULT_INITIAL_SLOTS;
   });
 
   const persistSlots = (newSlots) => {
     setSlots(newSlots);
-    localStorage.setItem('worship_flexible_slots', JSON.stringify(newSlots));
+    if (session?.churchId) {
+      multiTenantService.saveSlots(session.churchId, newSlots);
+    }
   };
 
   const [serviceDate, setServiceDate] = useState(getDefaultSundayDate());
   const [serviceNotes, setServiceNotes] = useState('Culto Dominical con transición fluida de Alabanza a Adoración.');
 
-  // 5. Sunday History State
+  // 6. Sunday History State (Strictly isolated per Church)
   const [history, setHistory] = useState(() => {
-    const saved = localStorage.getItem('worship_history');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+    if (activeChurchId) {
+      return multiTenantService.getHistory(activeChurchId);
     }
-    return SUNDAY_HISTORY;
+    return [];
   });
 
   const persistHistory = (newHistory) => {
     setHistory(newHistory);
-    localStorage.setItem('worship_history', JSON.stringify(newHistory));
+    if (session?.churchId) {
+      multiTenantService.saveHistory(session.churchId, newHistory);
+    }
+  };
+
+  // Reload isolated church data whenever active church changes
+  useEffect(() => {
+    if (session?.churchId) {
+      const cSettings = multiTenantService.getSettings(session.churchId);
+      const cSongs = multiTenantService.getSongs(session.churchId);
+      const cSlots = multiTenantService.getSlots(session.churchId);
+      const cHistory = multiTenantService.getHistory(session.churchId);
+
+      setChurchSettings(cSettings);
+      setSongs(cSongs);
+      setSlots(cSlots);
+      setHistory(cHistory);
+      setSelectedSong(cSongs[0] || null);
+    }
+  }, [session?.churchId]);
+
+  const handleLoginSuccess = (sessionData, churchData) => {
+    setSession(sessionData);
+    const cSettings = multiTenantService.getSettings(sessionData.churchId);
+    const cSongs = multiTenantService.getSongs(sessionData.churchId);
+    const cSlots = multiTenantService.getSlots(sessionData.churchId);
+    const cHistory = multiTenantService.getHistory(sessionData.churchId);
+
+    setChurchSettings(cSettings);
+    setSongs(cSongs);
+    setSlots(cSlots);
+    setHistory(cHistory);
+    setSelectedSong(cSongs[0] || null);
+    setActiveTab('dashboard');
+    showToast(`¡Bienvenido al portal de ${churchData.name}!`, 'success');
+  };
+
+  const handleLogout = () => {
+    multiTenantService.logout();
+    setSession(null);
+    showToast('Sesión de iglesia cerrada.', 'info');
   };
 
   // Active Tab: 'dashboard' (Armador), 'repertoire' (Repertorio Completo), 'viewer' (Atril), 'history' (Histórico)
@@ -446,14 +461,13 @@ export default function App() {
   const filledCount = slots.filter(s => Boolean(s.song)).length;
   const currentSetlistSongs = slots.map(s => s.song).filter(Boolean);
 
-  // If user is not authenticated, display LoginView
+  // If user is not authenticated, display Multi-Tenant AuthView (Login & Church Registration)
   if (!session?.isAuthenticated) {
     return (
-      <LoginView
-        churchSettings={churchSettings}
+      <AuthView
         theme={theme}
         onToggleTheme={toggleTheme}
-        onLogin={handleLogin}
+        onLoginSuccess={handleLoginSuccess}
       />
     );
   }
@@ -660,6 +674,7 @@ export default function App() {
         onResetRepertoire={handleResetRepertoire}
         onLogout={handleLogout}
         songsCount={songs.length}
+        tenantId={session?.churchId}
       />
     </div>
   );

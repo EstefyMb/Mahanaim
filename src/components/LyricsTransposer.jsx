@@ -24,6 +24,7 @@ import {
   getSemitonesDifference,
   CATEGORIES 
 } from '../mockData';
+import { convertLaCuerdaToBracketNotation, isLaCuerdaFormat } from '../utils/chordParser';
 
 export default function LyricsTransposer({
   song,
@@ -127,8 +128,14 @@ export default function LyricsTransposer({
     );
   }
 
+  // Auto-normalize if lyrics were pasted in LaCuerda format without brackets
+  const rawContent = song.lyricsAndChords || '';
+  const normalizedContent = isLaCuerdaFormat(rawContent)
+    ? convertLaCuerdaToBracketNotation(rawContent)
+    : rawContent;
+
   const currentKey = transposeChord(song.originalKey, semitones);
-  const transposedLyrics = transposeLyricsAndChords(song.lyricsAndChords, semitones);
+  const transposedLyrics = transposeLyricsAndChords(normalizedContent, semitones);
   const categoryInfo = CATEGORIES[song.category] || CATEGORIES.alabanza;
 
   const handleDirectKeySelect = (targetKey) => {
@@ -190,6 +197,7 @@ export default function LyricsTransposer({
   };
 
   const renderFormattedLine = (line, idx) => {
+    // Section headers like [Intro], [Verso 1], [Coro], [Puente]
     const sectionMatch = line.match(/^\[(Intro|Verso|Coro|Puente|Outro|Pre-Coro|Instrumental)[^\]]*\]$/i);
     if (sectionMatch) {
       return (
@@ -201,10 +209,20 @@ export default function LyricsTransposer({
       );
     }
 
+    // Check if line consists purely of chords and whitespace (e.g., chord line above lyrics)
+    const isPureChordLine = line.trim().length > 0 && line.replace(/\[[A-G][^\]]*\]/g, '').trim().length === 0;
+
     const parts = line.split(/(\[[A-G][^\]]*\])/g);
     
     return (
-      <div key={idx} className={`min-h-[1.7rem] sm:min-h-[1.9rem] whitespace-pre-wrap leading-relaxed py-0.5 w-full ${isCentered ? 'text-center' : ''}`}>
+      <div 
+        key={idx} 
+        className={`whitespace-pre-wrap font-mono w-full ${
+          isPureChordLine 
+            ? 'pt-2.5 pb-0 leading-tight text-amber-600 dark:text-amber-400 font-bold' 
+            : 'pt-0 pb-1 leading-relaxed text-slate-800 dark:text-slate-100'
+        } ${isCentered ? 'text-center' : 'text-left'}`}
+      >
         {parts.map((part, pIdx) => {
           if (part.startsWith('[') && part.endsWith(']')) {
             const chord = part.slice(1, -1);
@@ -214,11 +232,11 @@ export default function LyricsTransposer({
                 className="inline-block px-1.5 py-0.5 my-0.5 mx-0.5 font-bold font-mono rounded-md shadow-sm transition-colors cursor-default text-amber-700 dark:text-amber-300 bg-amber-400/20 dark:bg-amber-400/20 border border-amber-400/40 whitespace-nowrap text-xs sm:text-sm"
                 title={`Acorde: ${chord}`}
               >
-                {chord}
+                [{chord}]
               </span>
             );
           }
-          return <span key={pIdx} className="text-slate-800 dark:text-slate-100">{part}</span>;
+          return <span key={pIdx}>{part}</span>;
         })}
       </div>
     );

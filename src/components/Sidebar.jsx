@@ -201,7 +201,7 @@ export default function Sidebar({
           <div className="pt-1 flex items-center justify-between gap-2 px-1">
             <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 min-w-0">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-              <span className="truncate font-mono">{session?.email || 'equipo@alabanza.org'}</span>
+              <span className="truncate font-mono">{session?.adminEmail || session?.email || 'equipo@alabanza.org'}</span>
             </div>
 
             {onLogout && (

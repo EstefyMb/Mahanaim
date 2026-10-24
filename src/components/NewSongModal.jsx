@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { X, Plus, Music2, Sparkles } from 'lucide-react';
+import { X, Plus, Music2, Sparkles, Check, Wand2 } from 'lucide-react';
 import { CATEGORIES } from '../mockData';
+import { convertLaCuerdaToBracketNotation, isLaCuerdaFormat } from '../utils/chordParser';
 
 export default function NewSongModal({ isOpen, onClose, onSaveSong }) {
   const [title, setTitle] = useState('');
   const [artist, setArtist] = useState('');
   const [originalKey, setOriginalKey] = useState('G');
   const [category, setCategory] = useState('alabanza');
+  const [convertedNotice, setConvertedNotice] = useState(false);
   const [lyricsAndChords, setLyricsAndChords] = useState(`[Intro]
 [G]  [C]  [Em]  [D]
 
@@ -19,6 +21,21 @@ Con acordes [C]resaltados
 [G]Digno eres Señor
 [C]Toda gloria sea a Ti
 [Em]Por los siglos de los [D]siglos`);
+
+  const detectedLaCuerda = isLaCuerdaFormat(lyricsAndChords);
+
+  const handleConvertLaCuerda = () => {
+    const converted = convertLaCuerdaToBracketNotation(lyricsAndChords);
+    setLyricsAndChords(converted);
+    setConvertedNotice(true);
+    setTimeout(() => setConvertedNotice(false), 3000);
+
+    // Auto-detect tone if text had "Intro: G" or "Tono: D" or starts with first chord
+    const toneMatch = converted.match(/\[([A-G][#b]?m?)\]/);
+    if (toneMatch && toneMatch[1]) {
+      setOriginalKey(toneMatch[1]);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -129,20 +146,55 @@ Con acordes [C]resaltados
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Letra y Acordes ([Acorde])
+                  Letra y Acordes
                 </label>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Ejemplo: <code className="text-amber-500 dark:text-amber-400 font-mono">[G]</code>Dios es fiel
-                </span>
+                <button
+                  type="button"
+                  onClick={handleConvertLaCuerda}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/30 transition-all active:scale-95"
+                  title="Convierte automáticamente texto con acordes arriba (LaCuerda.net) al formato [Acorde]"
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                  <span>Ajustar formato LaCuerda</span>
+                </button>
               </div>
+
+              {/* Notice when LaCuerda format is detected */}
+              {detectedLaCuerda && (
+                <div className="mb-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-2 animate-in fade-in">
+                  <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
+                    <Sparkles className="w-4 h-4 shrink-0 text-amber-500" />
+                    <span>Detectamos acordes arriba estilo LaCuerda.net.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleConvertLaCuerda}
+                    className="px-2.5 py-1 rounded-lg text-xs font-black bg-amber-500 hover:bg-amber-400 text-white shadow-sm transition-all shrink-0"
+                  >
+                    Ajustar a corchetes []
+                  </button>
+                </div>
+              )}
+
+              {convertedNotice && (
+                <div className="mb-2 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 animate-in fade-in">
+                  <Check className="w-3.5 h-3.5" />
+                  <span>¡Acordes convertidos exitosamente a corchetes [X]!</span>
+                </div>
+              )}
+
               <textarea
-                rows={7}
+                rows={8}
                 value={lyricsAndChords}
                 onChange={(e) => setLyricsAndChords(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-xl p-3 font-mono text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 leading-relaxed"
+                placeholder="Pega la letra de LaCuerda.net aquí..."
+                className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-xl p-3 font-mono text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 leading-relaxed shadow-inner"
               />
+              <span className="text-[11px] text-slate-400 mt-1 block">
+                Tip: Puedes pegar el texto tal cual viene en <strong>lacuerda.net</strong> y tocar "Ajustar formato LaCuerda".
+              </span>
             </div>
           </div>
 

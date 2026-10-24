@@ -24,7 +24,8 @@ export default function SettingsModal({
   onToggleTheme,
   onResetRepertoire,
   onLogout,
-  songsCount = 0
+  songsCount = 0,
+  tenantId = ''
 }) {
   const [formData, setFormData] = useState({ ...settings });
   const [activeTab, setActiveTab] = useState('identity');
@@ -279,6 +280,23 @@ export default function SettingsModal({
                   </p>
                 </div>
               </div>
+
+              {/* Multi-Tenant Church ID */}
+              {tenantId && (
+                <div className="p-3.5 rounded-xl bg-slate-100 dark:bg-midnight-950 border border-slate-200 dark:border-midnight-800">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    ID de Congregación (Espacio Aislado)
+                  </span>
+                  <div className="flex items-center justify-between mt-1">
+                    <code className="text-xs font-mono font-bold text-indigo-600 dark:text-sky-400">
+                      {tenantId}
+                    </code>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-sky-400">
+                      Multi-Tenant Activo
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
