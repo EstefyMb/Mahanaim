@@ -188,16 +188,20 @@ class MultiTenantService {
     return { tenant: newTenant, session };
   }
 
-  // 2. AUTHENTICATION (LOGIN / LOGOUT / GOOGLE)
+  // 2. AUTHENTICATION (LOGIN / LOGOUT)
   login({ email, password, rememberSession = true }) {
     const cleanEmail = email.trim().toLowerCase();
     const tenants = this.getAllTenants();
-    const church = tenants.find(t => 
-      t.adminEmail.toLowerCase() === cleanEmail && t.password === password
-    );
+    
+    // First find if the church exists in this browser's registry
+    const church = tenants.find(t => t.adminEmail.toLowerCase() === cleanEmail);
 
     if (!church) {
-      throw new Error('Credenciales incorrectas. Verifica el correo y la contraseña de tu iglesia.');
+      throw new Error(`No encontramos ninguna iglesia registrada con el correo "${email}" en este navegador. Si te diste de alta en localhost o es tu primera vez entrando desde Vercel o tu móvil, por favor haz clic en la pestaña "Registrar Iglesia" para darla de alta.`);
+    }
+
+    if (church.password !== password) {
+      throw new Error('La contraseña ingresada es incorrecta. Por favor verifícala.');
     }
 
     const session = {
@@ -217,37 +221,60 @@ class MultiTenantService {
     return { church, session };
   }
 
-  loginWithGoogle({ email, rememberSession = true }) {
-    const cleanEmail = (email || '').trim().toLowerCase();
-    const tenants = this.getAllTenants();
-    
-    // Look for matching church by email
-    let church = cleanEmail ? tenants.find(t => t.adminEmail.toLowerCase() === cleanEmail) : null;
-
-    // If not found, use default demo church or auto-create one
-    if (!church) {
-      church = tenants[0] || DEFAULT_DEMO_TENANT;
-    }
-
-    const session = {
-      isAuthenticated: true,
-      churchId: church.id,
-      churchName: church.name,
-      adminEmail: cleanEmail || church.adminEmail,
-      userName: `${church.name} (Google)`,
-      token: `google_token_${church.id}_${Date.now()}`,
-      loginAt: new Date().toISOString()
-    };
-
-    if (rememberSession) {
-      this.setSession(session);
-    }
-
-    return { church, session };
-  }
-
   logout() {
     localStorage.removeItem(ACTIVE_SESSION_KEY);
+  }
+
+  // Export all local database data to JSON (allows migrating from localhost to Vercel)
+  exportFullBackup() {
+    try {
+      const backup = {
+        tenants: this.getAllTenants(),
+        tenantData: {},
+        exportedAt: new Date().toISOString()
+      };
+
+      for (const tenant of backup.tenants) {
+        backup.tenantData[tenant.id] = {
+          songs: this.getSongs(tenant.id),
+          slots: this.getSlots(tenant.id),
+          history: this.getHistory(tenant.id),
+          settings: this.getSettings(tenant.id)
+        };
+      }
+
+      return JSON.stringify(backup, null, 2);
+    } catch (e) {
+      console.error('Error exporting backup:', e);
+      return null;
+    }
+  }
+
+  // Import full database backup from JSON
+  importFullBackup(jsonString) {
+    try {
+      const data = JSON.parse(jsonString);
+      if (!data || !Array.isArray(data.tenants)) {
+        throw new Error('El archivo o texto de respaldo no tiene un formato válido.');
+      }
+
+      // Merge or replace tenants
+      const existing = this.getAllTenants();
+      const existingMap = new Map(existing.map(t => [t.id, t]));
+
+      for (const tenant of data.tenants) {
+        existingMap.set(tenant.id, tenant);
+        if (data.tenantData && data.tenantData[tenant.id]) {
+          this.saveTenantData(tenant.id, data.tenantData[tenant.id]);
+        }
+      }
+
+      localStorage.setItem(TENANTS_STORAGE_KEY, JSON.stringify(Array.from(existingMap.values())));
+      return true;
+    } catch (e) {
+      console.error('Error importing backup:', e);
+      throw e;
+    }
   }
 
   // 3. SESSION PERSISTENCE
