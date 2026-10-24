@@ -23,6 +23,7 @@ export default function SettingsModal({
   theme,
   onToggleTheme,
   onResetRepertoire,
+  onLogout,
   songsCount = 0
 }) {
   const [formData, setFormData] = useState({ ...settings });
@@ -310,6 +311,28 @@ export default function SettingsModal({
                   <span>Restaurar datos demo</span>
                 </button>
               </div>
+
+              {/* Logout Option */}
+              {onLogout && (
+                <div className="pt-3 border-t border-slate-200 dark:border-midnight-800 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Salir de la Sesión
+                    </span>
+                    <p className="text-[11px] text-slate-500">Cierra la sesión activa en este dispositivo</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onLogout();
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-rose-300 dark:border-rose-900 transition-colors"
+                  >
+                    <span>Cerrar Sesión</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

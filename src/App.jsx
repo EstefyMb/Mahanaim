@@ -9,6 +9,7 @@ import SundayHistory from './components/SundayHistory';
 import NewSongModal from './components/NewSongModal';
 import EditSongModal from './components/EditSongModal';
 import SettingsModal from './components/SettingsModal';
+import LoginView from './components/LoginView';
 import { 
   INITIAL_SONGS, 
   SUNDAY_HISTORY, 
@@ -56,6 +57,41 @@ export default function App() {
     setChurchSettings(newSettings);
     localStorage.setItem('worship_church_settings', JSON.stringify(newSettings));
     showToast('Configuración e identidad de la iglesia guardadas.', 'success');
+  };
+
+  // 3. Team Authentication & Session State
+  const [session, setSession] = useState(() => {
+    const saved = localStorage.getItem('worship_session');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return {
+      isAuthenticated: false,
+      email: churchSettings?.sharedEmail || 'equipo@alabanza.org',
+      userName: churchSettings?.name || 'Equipo de Alabanza'
+    };
+  });
+
+  const handleLogin = (sessionData) => {
+    const newSession = {
+      isAuthenticated: true,
+      email: sessionData.email,
+      userName: sessionData.userName
+    };
+    setSession(newSession);
+    if (sessionData.rememberSession) {
+      localStorage.setItem('worship_session', JSON.stringify(newSession));
+    }
+    showToast(`¡Bienvenido al portal de ${churchSettings.name}!`, 'success');
+  };
+
+  const handleLogout = () => {
+    setSession({
+      isAuthenticated: false,
+      email: session?.email || churchSettings?.sharedEmail || 'equipo@alabanza.org'
+    });
+    localStorage.removeItem('worship_session');
+    showToast('Sesión de equipo cerrada.', 'info');
   };
 
   // 3. Songs Repertoire (CRUD & Persistence)
@@ -410,6 +446,18 @@ export default function App() {
   const filledCount = slots.filter(s => Boolean(s.song)).length;
   const currentSetlistSongs = slots.map(s => s.song).filter(Boolean);
 
+  // If user is not authenticated, display LoginView
+  if (!session?.isAuthenticated) {
+    return (
+      <LoginView
+        churchSettings={churchSettings}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onLogin={handleLogin}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-midnight-950 text-slate-800 dark:text-slate-100 flex selection:bg-indigo-500 selection:text-white transition-colors duration-200">
       
@@ -474,8 +522,9 @@ export default function App() {
         churchSettings={churchSettings}
         theme={theme}
         onToggleTheme={toggleTheme}
-        onOpenNewSongModal={() => setIsNewSongModalOpen(true)}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+        session={session}
+        onLogout={handleLogout}
         filledCount={filledCount}
         totalSlotsCount={slots.length}
         totalSongsCount={songs.length}
@@ -609,6 +658,7 @@ export default function App() {
         theme={theme}
         onToggleTheme={toggleTheme}
         onResetRepertoire={handleResetRepertoire}
+        onLogout={handleLogout}
         songsCount={songs.length}
       />
     </div>

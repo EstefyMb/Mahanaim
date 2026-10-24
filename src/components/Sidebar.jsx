@@ -7,7 +7,8 @@ import {
   Settings2, 
   Moon, 
   Sun, 
-  ShieldCheck,
+  ShieldCheck, 
+  LogOut,
   X
 } from 'lucide-react';
 import ChurchEmblem from './ChurchEmblem';
@@ -19,6 +20,8 @@ export default function Sidebar({
   theme,
   onToggleTheme,
   onOpenSettingsModal,
+  session,
+  onLogout,
   filledCount = 0,
   totalSlotsCount = 5,
   totalSongsCount = 0,
@@ -28,7 +31,7 @@ export default function Sidebar({
   const menuItems = [
     {
       id: 'dashboard',
-      label: 'Lista de canciones',
+      label: 'Armador de Setlist',
       description: 'Estructura por Bloques',
       icon: Layers,
       badge: `${filledCount}/${totalSlotsCount}`,
@@ -42,7 +45,7 @@ export default function Sidebar({
     },
     {
       id: 'repertoire',
-      label: 'Repertorio',
+      label: 'Repertorio Completo',
       description: 'Catálogo de alabanza y adoración',
       icon: Music,
       badge: `${totalSongsCount}`,
@@ -50,7 +53,7 @@ export default function Sidebar({
     },
     {
       id: 'history',
-      label: 'Historial de servicios',
+      label: 'Histórico de Cultos',
       description: 'Auditoría de domingos',
       icon: Calendar
     }
@@ -150,8 +153,8 @@ export default function Sidebar({
           })}
         </div>
 
-        {/* Bottom Section: Church Settings & Theme Toggle */}
-        <div className="p-4 border-t border-slate-200 dark:border-midnight-800 space-y-3 bg-slate-50/50 dark:bg-midnight-950/40">
+        {/* Bottom Section: Church Settings, Theme & Logout */}
+        <div className="p-4 border-t border-slate-200 dark:border-midnight-800 space-y-2.5 bg-slate-50/50 dark:bg-midnight-950/40">
           
           {/* Settings Trigger */}
           <button
@@ -194,10 +197,22 @@ export default function Sidebar({
             </button>
           </div>
 
-          {/* Persistent Team Session Badge */}
-          <div className="flex items-center gap-2 px-1 text-[11px] text-slate-500 dark:text-slate-400">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-            <span className="truncate">Sesión de equipo activa</span>
+          {/* Active Session info with Logout */}
+          <div className="pt-1 flex items-center justify-between gap-2 px-1">
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 min-w-0">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              <span className="truncate font-mono">{session?.email || 'equipo@alabanza.org'}</span>
+            </div>
+
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors shrink-0"
+                title="Cerrar sesión"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </aside>
