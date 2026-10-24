@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Plus, Music2, Sparkles, Check, Wand2 } from 'lucide-react';
 import { CATEGORIES } from '../mockData';
 import { convertLaCuerdaToBracketNotation, isLaCuerdaFormat } from '../utils/chordParser';
@@ -9,18 +9,19 @@ export default function NewSongModal({ isOpen, onClose, onSaveSong }) {
   const [originalKey, setOriginalKey] = useState('G');
   const [category, setCategory] = useState('alabanza');
   const [convertedNotice, setConvertedNotice] = useState(false);
-  const [lyricsAndChords, setLyricsAndChords] = useState(`[Intro]
-[G]  [C]  [Em]  [D]
+  const [lyricsAndChords, setLyricsAndChords] = useState('');
 
-[Verso 1]
-[G]Aquí comienza el primer verso
-Con acordes [C]resaltados
-[Em]Caminando en Tu [D]presencia
-
-[Coro]
-[G]Digno eres Señor
-[C]Toda gloria sea a Ti
-[Em]Por los siglos de los [D]siglos`);
+  // Reset all fields whenever modal is opened
+  useEffect(() => {
+    if (isOpen) {
+      setTitle('');
+      setArtist('');
+      setOriginalKey('G');
+      setCategory('alabanza');
+      setLyricsAndChords('');
+      setConvertedNotice(false);
+    }
+  }, [isOpen]);
 
   const detectedLaCuerda = isLaCuerdaFormat(lyricsAndChords);
 
@@ -51,12 +52,13 @@ Con acordes [C]resaltados
       category,
       daysAgo: null, // Canción nueva: Nunca tocada aún (Óptima rotación)
       lastPlayedDate: 'Nunca tocada aún',
-      lyricsAndChords
+      lyricsAndChords: lyricsAndChords.trim()
     };
 
     onSaveSong(newSong);
     setTitle('');
     setArtist('');
+    setLyricsAndChords('');
     onClose();
   };
 

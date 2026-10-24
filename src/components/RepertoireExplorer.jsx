@@ -1,7 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import { Search, Music2, ArrowUpDown, Sparkles } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, Music2, ArrowUpDown, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import SongCard from './SongCard';
 import { CATEGORIES } from '../mockData';
+
+const PAGE_SIZE = 6;
 
 export default function RepertoireExplorer({
   songs,
@@ -14,6 +16,7 @@ export default function RepertoireExplorer({
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedRotation, setSelectedRotation] = useState('all');
   const [sortBy, setSortBy] = useState('rotation_desc'); // Default: Regla de oro (más tiempo sin tocarse primero)
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Filter and sort songs
   const filteredAndSortedSongs = useMemo(() => {
