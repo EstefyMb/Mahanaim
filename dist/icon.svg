@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#1e1b4b" />
+      <stop offset="100%" stop-color="#070b14" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde68a" />
+      <stop offset="50%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background with rounded corners -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+  <rect width="504" height="504" x="4" y="4" rx="124" stroke="url(#skyGrad)" stroke-width="4" stroke-opacity="0.3" />
+
+  <!-- Celestial Glow circle -->
+  <circle cx="256" cy="240" r="140" fill="url(#goldGrad)" opacity="0.12" filter="url(#glow)" />
+
+  <!-- Cross and Lyre / Musical Note motif -->
+  <path d="M256 100 V380" stroke="url(#goldGrad)" stroke-width="28" stroke-linecap="round" />
+  <path d="M176 180 H336" stroke="url(#goldGrad)" stroke-width="28" stroke-linecap="round" />
+
+  <!-- Musical Notes Wings -->
+  <path d="M190 280 C150 280 130 310 130 340 C130 370 155 390 185 390 C220 390 236 360 236 320 V220 C236 180 320 170 340 150" stroke="url(#skyGrad)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  <circle cx="170" cy="350" r="28" fill="url(#skyGrad)" />
+  <circle cx="340" cy="150" r="18" fill="url(#goldGrad)" />
+
+  <!-- Stars / Celestial sparkles -->
+  <path d="M130 140 L134 148 L142 152 L134 156 L130 164 L126 156 L118 152 L126 148 Z" fill="#fbbf24" />
+  <path d="M370 270 L373 277 L380 280 L373 283 L370 290 L367 283 L360 280 L367 277 Z" fill="#38bdf8" />
+  <path d="M360 90 L363 96 L370 99 L363 102 L360 108 L357 102 L350 99 L357 96 Z" fill="#fbbf24" />
+</svg>
