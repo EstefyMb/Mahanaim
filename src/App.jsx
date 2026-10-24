@@ -459,7 +459,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-midnight-950 text-slate-800 dark:text-slate-100 flex selection:bg-indigo-500 selection:text-white transition-colors duration-200">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 dark:bg-midnight-950 text-slate-800 dark:text-slate-100 flex selection:bg-indigo-500 selection:text-white transition-colors duration-200">
       
       {/* Toast Notification */}
       {toast && (
@@ -533,7 +533,7 @@ export default function App() {
       />
 
       {/* MAIN WRAPPER */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+      <div className="flex-1 flex flex-col min-w-0 w-full max-w-full overflow-x-hidden min-h-screen">
         
         {/* Top Navbar */}
         <Header
@@ -548,7 +548,7 @@ export default function App() {
         />
 
         {/* Content View Area */}
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 overflow-x-hidden">
           
           {/* TAB 1: ARMADOR DE SETLIST (Dashboard dinámico de bloques) */}
           {activeTab === 'dashboard' && (

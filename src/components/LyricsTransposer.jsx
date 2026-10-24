@@ -14,7 +14,9 @@ import {
   Minimize2,
   ChevronLeft,
   ChevronRight,
-  Gauge
+  Gauge,
+  AlignCenter,
+  AlignLeft
 } from 'lucide-react';
 import { 
   transposeChord, 
@@ -36,9 +38,24 @@ export default function LyricsTransposer({
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState(1); // 0.5, 1, 1.5, 2, 2.5
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isCentered, setIsCentered] = useState(true); // Center lyrics & chords by default (ideal for fullscreen atril)
   const [copied, setCopied] = useState(false);
 
   const containerRef = useRef(null);
+
+  // Sync fullscreen state with browser events (e.g. user presses Esc key)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFs = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+      setIsFullscreen(isFs);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
   // Reset when song changes
   useEffect(() => {
@@ -50,7 +67,7 @@ export default function LyricsTransposer({
     }
   }, [song?.id]);
 
-  // Robust, 60fps RequestAnimationFrame Auto-Scroll
+  // Robust, 60fps RequestAnimationFrame Auto-Scroll (Works both in Fullscreen and Normal Window)
   useEffect(() => {
     if (!isAutoScrolling) return;
 
@@ -73,10 +90,12 @@ export default function LyricsTransposer({
         const pixelsToScroll = Math.floor(accumulatedPixels);
         accumulatedPixels -= pixelsToScroll;
 
-        // If fullscreen, scroll the fullscreen element; otherwise scroll window
-        if (isFullscreen && containerRef.current) {
+        // Auto-scroll the fullscreen container element if active
+        if (containerRef.current) {
           containerRef.current.scrollTop += pixelsToScroll;
-        } else {
+        }
+        // Also advance window for normal view
+        if (!isFullscreen) {
           window.scrollBy(0, pixelsToScroll);
         }
       }
@@ -124,14 +143,25 @@ export default function LyricsTransposer({
   };
 
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-      setIsFullscreen(true);
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      if (containerRef.current?.requestFullscreen) {
+        containerRef.current.requestFullscreen().catch(() => {
+          setIsFullscreen(true);
+        });
+      } else if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {
+          setIsFullscreen(true);
+        });
+      } else {
+        setIsFullscreen(true);
+      }
     } else {
       if (document.exitFullscreen) {
         document.exitFullscreen().catch(() => {});
-        setIsFullscreen(false);
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen().catch(() => {});
       }
+      setIsFullscreen(false);
     }
   };
 
@@ -163,8 +193,8 @@ export default function LyricsTransposer({
     const sectionMatch = line.match(/^\[(Intro|Verso|Coro|Puente|Outro|Pre-Coro|Instrumental)[^\]]*\]$/i);
     if (sectionMatch) {
       return (
-        <div key={idx} className="pt-4 pb-1 sm:pt-5 sm:pb-1.5">
-          <span className="inline-block px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-lg text-[10px] sm:text-xs font-black font-sans tracking-wider bg-indigo-500/15 dark:bg-indigo-500/20 text-indigo-700 dark:text-sky-300 border border-indigo-500/30 uppercase">
+        <div key={idx} className={`pt-4 pb-1 sm:pt-5 sm:pb-1.5 w-full ${isCentered ? 'text-center flex justify-center' : ''}`}>
+          <span className="inline-block px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-lg text-[10px] sm:text-xs font-black font-sans tracking-wider bg-indigo-500/15 dark:bg-indigo-500/20 text-indigo-700 dark:text-sky-300 border border-indigo-500/30 uppercase shadow-sm">
             {line.replace(/[\[\]]/g, '')}
           </span>
         </div>
@@ -174,7 +204,7 @@ export default function LyricsTransposer({
     const parts = line.split(/(\[[A-G][^\]]*\])/g);
     
     return (
-      <div key={idx} className="min-h-[1.7rem] sm:min-h-[1.9rem] whitespace-pre-wrap leading-relaxed py-0.5">
+      <div key={idx} className={`min-h-[1.7rem] sm:min-h-[1.9rem] whitespace-pre-wrap leading-relaxed py-0.5 w-full ${isCentered ? 'text-center' : ''}`}>
         {parts.map((part, pIdx) => {
           if (part.startsWith('[') && part.endsWith(']')) {
             const chord = part.slice(1, -1);
@@ -199,10 +229,10 @@ export default function LyricsTransposer({
   return (
     <div 
       ref={containerRef}
-      className={`flex flex-col gap-3 sm:gap-4 pb-20 ${
+      className={`flex flex-col gap-3 sm:gap-4 ${
         isFullscreen 
-          ? 'fixed inset-0 z-50 bg-slate-50 dark:bg-midnight-950 p-4 sm:p-6 overflow-y-auto' 
-          : 'relative'
+          ? 'fixed inset-0 z-50 bg-slate-50 dark:bg-midnight-950 p-4 sm:p-6 overflow-y-auto pb-96' 
+          : 'relative pb-24'
       }`}
     >
       
@@ -247,7 +277,9 @@ export default function LyricsTransposer({
       )}
 
       {/* Main Atril Reader Card */}
-      <div className="bg-white dark:bg-midnight-900 border border-slate-200 dark:border-midnight-800 rounded-3xl p-4 sm:p-7 shadow-xl dark:shadow-2xl transition-colors duration-200">
+      <div className={`bg-white dark:bg-midnight-900 border border-slate-200 dark:border-midnight-800 rounded-3xl p-4 sm:p-7 shadow-xl dark:shadow-2xl transition-colors duration-200 ${
+        isFullscreen ? 'max-w-4xl mx-auto w-full' : ''
+      }`}>
         
         {/* Navigation & Song Title Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-midnight-800">
@@ -358,7 +390,7 @@ export default function LyricsTransposer({
               </div>
             </div>
 
-            {/* Font Size & Auto-Scroll Controls */}
+            {/* Font Size, Alignment & Auto-Scroll Controls */}
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               {/* Font Size (A- / A+) */}
               <div className="flex items-center gap-1 bg-white dark:bg-midnight-900 px-2 py-1 rounded-xl border border-slate-200 dark:border-midnight-800">
@@ -381,6 +413,20 @@ export default function LyricsTransposer({
                   A+
                 </button>
               </div>
+
+              {/* Text Alignment Button (Centrado vs Izquierda) */}
+              <button
+                onClick={() => setIsCentered(!isCentered)}
+                className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 border transition-all ${
+                  isCentered
+                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 shadow-sm'
+                    : 'bg-white dark:bg-midnight-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-midnight-800 hover:bg-slate-50'
+                }`}
+                title={isCentered ? 'Centrado activado' : 'Alinear a la izquierda'}
+              >
+                {isCentered ? <AlignCenter className="w-3.5 h-3.5" /> : <AlignLeft className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline">{isCentered ? 'Centrado' : 'Izquierda'}</span>
+              </button>
 
               {/* Auto Scroll Button */}
               <div className="flex items-center gap-1 bg-white dark:bg-midnight-900 p-1 rounded-xl border border-slate-200 dark:border-midnight-800">
@@ -431,9 +477,13 @@ export default function LyricsTransposer({
           </div>
         </div>
 
-        {/* Chords and Lyrics Sheet (Modo Atril) */}
-        <div className={`mt-4 sm:mt-6 font-mono select-text transition-all duration-200 overflow-x-auto ${fontSizes[fontSizeIndex].class}`}>
-          {transposedLyrics.split('\n').map((line, idx) => renderFormattedLine(line, idx))}
+        {/* Chords and Lyrics Sheet (Modo Atril Centrado / Alineado) */}
+        <div className={`mt-4 sm:mt-6 font-mono select-text transition-all duration-200 overflow-x-auto w-full ${
+          isCentered ? 'text-center flex flex-col items-center justify-center' : ''
+        } ${fontSizes[fontSizeIndex].class}`}>
+          <div className={`w-full max-w-3xl ${isCentered ? 'text-center' : ''}`}>
+            {transposedLyrics.split('\n').map((line, idx) => renderFormattedLine(line, idx))}
+          </div>
         </div>
       </div>
 

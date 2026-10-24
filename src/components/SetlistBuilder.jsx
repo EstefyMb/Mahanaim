@@ -174,7 +174,7 @@ export default function SetlistBuilder({
         <div className="mt-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 bg-slate-50 dark:bg-midnight-950 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-midnight-800 flex-1">
             <Calendar className="w-4 h-4 text-indigo-500 dark:text-sky-400 shrink-0" />
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Fecha del Culto:</span>
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Fecha del servicio:</span>
             <input
               type="date"
               value={serviceDate}
@@ -236,7 +236,7 @@ export default function SetlistBuilder({
                   onDragOver={(e) => handleDragOver(e, slot.id)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, slot.id)}
-                  className={`rounded-2xl border-2 border-dashed p-3 flex items-center justify-between gap-3 transition-all ${
+                  className={`rounded-2xl border-2 border-dashed p-2.5 sm:p-3 flex items-center justify-between gap-2 transition-all ${
                     isDragOver 
                       ? 'border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/40 scale-[1.01]' 
                       : 'border-amber-500/30 bg-amber-500/5 hover:border-amber-500/60 hover:bg-amber-500/10'
@@ -244,25 +244,25 @@ export default function SetlistBuilder({
                 >
                   <div 
                     onClick={() => setSelectedSlotForDrawer({ ...slot, indexInBlock, globalIndex })}
-                    className="flex items-center gap-3 cursor-pointer flex-1 min-w-0"
+                    className="flex items-center gap-2 sm:gap-3 cursor-pointer flex-1 min-w-0"
                   >
-                    <div className="w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30 shrink-0">
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl flex items-center justify-center font-bold text-xs bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30 shrink-0">
                       {globalIndex + 1}
                     </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
                         🔥 {indexInBlock + 1}ª Alabanza
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                        Haz clic para ver sugerencias descansadas
+                      <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        Toca para asignar descanso
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => setSelectedSlotForDrawer({ ...slot, indexInBlock, globalIndex })}
-                      className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
+                      className="text-[11px] font-semibold px-2 py-1 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
                     >
                       + Asignar
                     </button>
@@ -289,7 +289,7 @@ export default function SetlistBuilder({
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, slot.id)}
                 onDragEnd={handleDragEnd}
-                className={`group relative rounded-2xl p-3 flex items-center justify-between gap-3 border transition-all duration-150 select-none ${
+                className={`group relative rounded-2xl p-2.5 sm:p-3 flex items-center justify-between gap-2 border transition-all duration-150 select-none ${
                   isDragging 
                     ? 'opacity-40 scale-95 border-indigo-400 bg-indigo-50/20' 
                     : isDragOver
@@ -298,7 +298,7 @@ export default function SetlistBuilder({
                 }`}
               >
                 {/* Drag Handle & Song Details */}
-                <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
                   {/* Grip Icon for Drag & Drop */}
                   <div 
                     className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-slate-400 hover:text-amber-500 dark:hover:text-amber-400 shrink-0" 
@@ -308,29 +308,29 @@ export default function SetlistBuilder({
                   </div>
 
                   {/* Slot Number */}
-                  <div className="w-7 h-7 rounded-xl flex items-center justify-center font-black text-xs bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40 shrink-0">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl flex items-center justify-center font-black text-xs bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40 shrink-0">
                     {globalIndex + 1}
                   </div>
 
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       <span
                         onClick={() => onViewLyrics?.(song)}
-                        className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-sky-400 cursor-pointer truncate"
+                        className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-sky-400 cursor-pointer truncate max-w-[120px] sm:max-w-none"
                         title={song.title}
                       >
                         {song.title}
                       </span>
-                      <span className="font-mono text-[10px] font-black px-1.5 py-0.5 rounded bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
+                      <span className="font-mono text-[10px] font-black px-1.5 py-0.5 rounded bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 shrink-0">
                         {song.originalKey}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                      <span className="truncate max-w-[110px] sm:max-w-[140px]">{song.artist}</span>
+                    <div className="flex items-center gap-1 sm:gap-2 mt-0.5 text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 flex-wrap min-w-0">
+                      <span className="truncate max-w-[80px] sm:max-w-[140px]">{song.artist}</span>
                       <span>•</span>
-                      <span className="text-amber-600 dark:text-amber-400 font-semibold">{indexInBlock + 1}ª Alabanza</span>
+                      <span className="text-amber-600 dark:text-amber-400 font-semibold shrink-0">{indexInBlock + 1}ª Alabanza</span>
                       <span>•</span>
-                      <span className={`inline-flex items-center gap-1 font-medium ${rotation.text}`}>
+                      <span className={`inline-flex items-center gap-1 font-medium shrink-0 ${rotation.text}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${rotation.dot}`}></span>
                         {song.daysAgo === null || song.daysAgo === undefined ? 'Nunca' : `${song.daysAgo}d`}
                       </span>
@@ -339,7 +339,7 @@ export default function SetlistBuilder({
                 </div>
 
                 {/* Actions & Reorder Chevrons */}
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
                   {/* Up / Down Move buttons */}
                   {onMoveSlot && (
                     <div className="flex flex-col -space-y-1">
@@ -364,14 +364,14 @@ export default function SetlistBuilder({
 
                   <button
                     onClick={() => onViewLyrics?.(song)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-midnight-800 transition-colors"
+                    className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-midnight-800 transition-colors"
                     title="Ver Letra y Acordes en Atril"
                   >
                     <Eye className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => onClearSlotSong(slot.id)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
+                    className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
                     title="Vaciar espacio"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -379,7 +379,7 @@ export default function SetlistBuilder({
                   {canDeleteSlot && (
                     <button
                       onClick={() => onRemoveSlot(slot.id)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                      className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
                       title="Quitar este espacio del setlist"
                     >
                       <X className="w-4 h-4" />
@@ -423,7 +423,7 @@ export default function SetlistBuilder({
                   onDragOver={(e) => handleDragOver(e, slot.id)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, slot.id)}
-                  className={`rounded-2xl border-2 border-dashed p-3 flex items-center justify-between gap-3 transition-all ${
+                  className={`rounded-2xl border-2 border-dashed p-2.5 sm:p-3 flex items-center justify-between gap-2 transition-all ${
                     isDragOver 
                       ? 'border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/40 scale-[1.01]' 
                       : 'border-indigo-500/30 bg-indigo-50/5 hover:border-indigo-500/60 hover:bg-indigo-50/10'
@@ -431,25 +431,25 @@ export default function SetlistBuilder({
                 >
                   <div 
                     onClick={() => setSelectedSlotForDrawer({ ...slot, indexInBlock, globalIndex })}
-                    className="flex items-center gap-3 cursor-pointer flex-1 min-w-0"
+                    className="flex items-center gap-2 sm:gap-3 cursor-pointer flex-1 min-w-0"
                   >
-                    <div className="w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 shrink-0">
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl flex items-center justify-center font-bold text-xs bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 shrink-0">
                       {globalIndex + 1}
                     </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
                         🕊️ {indexInBlock + 1}ª Adoración
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                        Haz clic para ver sugerencias descansadas
+                      <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        Toca para asignar descanso
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => setSelectedSlotForDrawer({ ...slot, indexInBlock, globalIndex })}
-                      className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-indigo-500/30 bg-indigo-50/10 text-indigo-600 dark:text-sky-400 hover:bg-indigo-500/20"
+                      className="text-[11px] font-semibold px-2 py-1 rounded-lg border border-indigo-500/30 bg-indigo-50/10 text-indigo-600 dark:text-sky-400 hover:bg-indigo-500/20"
                     >
                       + Asignar
                     </button>
@@ -476,7 +476,7 @@ export default function SetlistBuilder({
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, slot.id)}
                 onDragEnd={handleDragEnd}
-                className={`group relative rounded-2xl p-3 flex items-center justify-between gap-3 border transition-all duration-150 select-none ${
+                className={`group relative rounded-2xl p-2.5 sm:p-3 flex items-center justify-between gap-2 border transition-all duration-150 select-none ${
                   isDragging 
                     ? 'opacity-40 scale-95 border-indigo-400 bg-indigo-50/20' 
                     : isDragOver
@@ -485,7 +485,7 @@ export default function SetlistBuilder({
                 }`}
               >
                 {/* Drag Handle & Song Details */}
-                <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
                   {/* Grip Icon for Drag & Drop */}
                   <div 
                     className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-slate-400 hover:text-indigo-500 dark:hover:text-sky-400 shrink-0" 
@@ -495,29 +495,29 @@ export default function SetlistBuilder({
                   </div>
 
                   {/* Slot Number */}
-                  <div className="w-7 h-7 rounded-xl flex items-center justify-center font-black text-xs bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/40 shrink-0">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl flex items-center justify-center font-black text-xs bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/40 shrink-0">
                     {globalIndex + 1}
                   </div>
 
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       <span
                         onClick={() => onViewLyrics?.(song)}
-                        className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-sky-400 cursor-pointer truncate"
+                        className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-sky-400 cursor-pointer truncate max-w-[120px] sm:max-w-none"
                         title={song.title}
                       >
                         {song.title}
                       </span>
-                      <span className="font-mono text-[10px] font-black px-1.5 py-0.5 rounded bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
+                      <span className="font-mono text-[10px] font-black px-1.5 py-0.5 rounded bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 shrink-0">
                         {song.originalKey}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                      <span className="truncate max-w-[110px] sm:max-w-[140px]">{song.artist}</span>
+                    <div className="flex items-center gap-1 sm:gap-2 mt-0.5 text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 flex-wrap min-w-0">
+                      <span className="truncate max-w-[80px] sm:max-w-[140px]">{song.artist}</span>
                       <span>•</span>
-                      <span className="text-indigo-600 dark:text-sky-400 font-semibold">{indexInBlock + 1}ª Adoración</span>
+                      <span className="text-indigo-600 dark:text-sky-400 font-semibold shrink-0">{indexInBlock + 1}ª Adoración</span>
                       <span>•</span>
-                      <span className={`inline-flex items-center gap-1 font-medium ${rotation.text}`}>
+                      <span className={`inline-flex items-center gap-1 font-medium shrink-0 ${rotation.text}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${rotation.dot}`}></span>
                         {song.daysAgo === null || song.daysAgo === undefined ? 'Nunca' : `${song.daysAgo}d`}
                       </span>
@@ -526,7 +526,7 @@ export default function SetlistBuilder({
                 </div>
 
                 {/* Actions & Reorder Chevrons */}
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
                   {/* Up / Down Move buttons */}
                   {onMoveSlot && (
                     <div className="flex flex-col -space-y-1">
@@ -551,14 +551,14 @@ export default function SetlistBuilder({
 
                   <button
                     onClick={() => onViewLyrics?.(song)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-midnight-800 transition-colors"
+                    className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-midnight-800 transition-colors"
                     title="Ver Letra y Acordes en Atril"
                   >
                     <Eye className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => onClearSlotSong(slot.id)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10 transition-colors"
+                    className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10 transition-colors"
                     title="Vaciar espacio"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -566,7 +566,7 @@ export default function SetlistBuilder({
                   {canDeleteSlot && (
                     <button
                       onClick={() => onRemoveSlot(slot.id)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                      className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
                       title="Quitar este espacio del setlist"
                     >
                       <X className="w-4 h-4" />

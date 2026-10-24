@@ -47,22 +47,22 @@ export default function Header({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
         
         {/* Left: Mobile Hamburger & Active Title */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
           <button
             onClick={onOpenMobileSidebar}
-            className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-midnight-900 lg:hidden border border-slate-200 dark:border-midnight-800"
+            className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-midnight-900 lg:hidden border border-slate-200 dark:border-midnight-800 shrink-0"
             title="Abrir menú"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          <div>
-            <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm sm:text-lg font-black text-slate-900 dark:text-white tracking-tight truncate">
               {tabTitles[activeTab] || 'Worship Manager'}
             </h2>
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <Calendar className="w-3.5 h-3.5 text-indigo-500 dark:text-sky-400" />
-              <span className="capitalize">
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 min-w-0">
+              <Calendar className="w-3.5 h-3.5 text-indigo-500 dark:text-sky-400 shrink-0" />
+              <span className="capitalize truncate">
                 Próximo Culto: <strong className="text-slate-700 dark:text-slate-200 font-semibold">{nextSundayFormatted}</strong>
               </span>
             </div>
