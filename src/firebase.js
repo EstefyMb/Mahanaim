@@ -1,7 +1,8 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
-// Las credenciales exactas de tu proyecto en Firebase
+// Credenciales del proyecto Firebase
 const firebaseConfig = {
   apiKey: "AizaSyB0uYWLlxYT6Ai6batEyacvZE5uD68vgug",
   authDomain: "alaba-22734.firebaseapp.com",
@@ -12,8 +13,8 @@ const firebaseConfig = {
   measurementId: "G-1GFH1BTB3F"
 };
 
-// Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 
-// Exportar la base de datos Firestore
 export const db = getFirestore(app);
+export const auth = getAuth(app);
+export default app;
