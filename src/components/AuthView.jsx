@@ -22,6 +22,9 @@ import {
 } from 'lucide-react';
 import ChurchEmblem, { EMBLEM_PRESETS } from './ChurchEmblem';
 import { multiTenantService } from '../services/multiTenantService';
+import { auth, db } from '../firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function AuthView({
   theme,
@@ -57,8 +60,8 @@ export default function AuthView({
   // List of existing tenants on this machine (for quick switching or demonstration)
   const existingTenants = multiTenantService.getAllTenants();
 
-  // Handle Login
-  const handleLoginSubmit = (e) => {
+  // Handle Login con Firebase
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMessage('');
@@ -70,24 +73,38 @@ export default function AuthView({
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      try {
-        const { church, session } = multiTenantService.login({
-          email: loginEmail,
-          password: loginPassword,
-          rememberSession
-        });
-        setIsLoading(false);
-        onLoginSuccess(session, church);
-      } catch (err) {
-        setIsLoading(false);
-        setError(err.message || 'Error al iniciar sesión.');
-      }
-    }, 400);
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, loginEmail.trim(), loginPassword);
+      const user = userCredential.user;
+
+      const churchId = `church_${user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+      
+      const churchData = {
+        id: churchId,
+        name: 'Ministerio de Alabanza',
+        adminEmail: user.email
+      };
+
+      const sessionData = {
+        isAuthenticated: true,
+        churchId: churchId,
+        churchName: 'Ministerio de Alabanza',
+        adminEmail: user.email,
+        email: user.email,
+        rememberSession
+      };
+
+      setIsLoading(false);
+      onLoginSuccess(sessionData, churchData);
+    } catch (err) {
+      setIsLoading(false);
+      console.error(err);
+      setError('Correo o contraseña incorrectos en la base de datos.');
+    }
   };
 
-  // Handle Register New Church
-  const handleRegisterSubmit = (e) => {
+  // Handle Register New Church con Firebase
+  const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMessage('');
@@ -100,8 +117,8 @@ export default function AuthView({
       setError('Por favor ingresa el correo del administrador de la iglesia.');
       return;
     }
-    if (!registerPassword || registerPassword.length < 4) {
-      setError('La contraseña debe tener al menos 4 caracteres.');
+    if (!registerPassword || registerPassword.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
     if (registerPassword !== confirmPassword) {
@@ -111,28 +128,72 @@ export default function AuthView({
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      try {
-        const { tenant, session } = multiTenantService.registerChurch({
-          name: churchName,
-          subtitle: churchSubtitle,
-          adminEmail,
-          password: registerPassword,
+    try {
+      // 1. Crear usuario en Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, adminEmail.trim(), registerPassword);
+      const user = userCredential.user;
+
+      // 2. Generar ID único para la Firestore Database
+      const baseSlug = churchName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_');
+      const uniqueId = `church_${baseSlug}_${user.uid.substring(0, 6)}`;
+
+      // 3. Guardar el documento inicial en Firestore (igual que tu estructura actual)
+      await setDoc(doc(db, 'churches', uniqueId), {
+        settings: {
+          name: churchName.trim(),
+          subtitle: churchSubtitle.trim(),
           logoType,
           logoPreset,
-          customLogoUrl,
-          starterSongs: starterOption
-        });
-        setIsLoading(false);
-        setSuccessMessage(`¡Iglesia "${tenant.name}" dada de alta exitosamente!`);
-        setTimeout(() => {
-          onLoginSuccess(session, tenant);
-        }, 300);
-      } catch (err) {
-        setIsLoading(false);
+          customLogoUrl: customLogoUrl.trim(),
+          sharedEmail: adminEmail.trim(),
+          sessionActive: true,
+          sessionUser: 'Administrador'
+        },
+        songs: starterOption === 'sample' ? [
+          {
+            id: 'sample-1',
+            title: 'Digno de Alabar',
+            originalKey: 'G',
+            category: 'Adoración',
+            artist: 'Miel San Marcos',
+            lyricsAndChords: '[G]Digno de alabar, [D/F#]Señor\n[Em]Manos alzo ante ti'
+          }
+        ] : [],
+        slots: [],
+        history: []
+      });
+
+      const tenantData = {
+        id: uniqueId,
+        name: churchName.trim(),
+        adminEmail: adminEmail.trim()
+      };
+
+      const sessionData = {
+        isAuthenticated: true,
+        churchId: uniqueId,
+        churchName: churchName.trim(),
+        adminEmail: adminEmail.trim(),
+        email: adminEmail.trim(),
+        rememberSession: true
+      };
+
+      setIsLoading(false);
+      setSuccessMessage(`¡Iglesia "${churchName}" dada de alta en la nube exitosamente!`);
+      
+      setTimeout(() => {
+        onLoginSuccess(sessionData, tenantData);
+      }, 400);
+
+    } catch (err) {
+      setIsLoading(false);
+      console.error(err);
+      if (err.code === 'auth/email-already-in-use') {
+        setError('Este correo ya está registrado. Por favor inicia sesión.');
+      } else {
         setError(err.message || 'Error al registrar la congregación.');
       }
-    }, 550);
+    }
   };
 
 
@@ -196,7 +257,7 @@ export default function AuthView({
 
           <div className="inline-flex items-center gap-1.5 mt-2.5 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-sky-300 border border-indigo-500/25 text-[11px] font-bold">
             <ShieldCheck className="w-3.5 h-3.5 text-indigo-500 dark:text-sky-400" />
-            <span>Espacio Multi-Tenant con Datos Aislados</span>
+            <span>Espacio Conectado a Firebase Cloud</span>
           </div>
         </div>
 
@@ -426,7 +487,7 @@ export default function AuthView({
                 />
               </div>
               <p className="text-[11px] text-slate-400 mt-1">
-                Servirá para que tú y tu equipo accedan de forma aislada a sus canciones.
+                Servirá para que tú y tu equipo accedan desde cualquier celular a sus canciones.
               </p>
             </div>
 
@@ -443,7 +504,7 @@ export default function AuthView({
                     required
                     value={registerPassword}
                     onChange={(e) => setRegisterPassword(e.target.value)}
-                    placeholder="Mínimo 4 caracteres"
+                    placeholder="Mínimo 6 caracteres"
                     className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-10 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 font-mono text-xs shadow-inner"
                   />
                   <button
@@ -612,7 +673,7 @@ export default function AuthView({
         {/* Footer info */}
         <div className="mt-6 pt-4 border-t border-slate-100 dark:border-midnight-800/80 text-center text-[11px] text-slate-400">
           <p>
-            Cada congregación cuenta con su espacio multi-tenant propio. Ninguna otra iglesia podrá ver ni modificar tu repertorio.
+            Cada congregación cuenta con su espacio multi-tenant en la nube. Tus músicos podrán acceder desde cualquier dispositivo.
           </p>
         </div>
       </div>
