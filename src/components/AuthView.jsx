@@ -16,8 +16,6 @@ import {
   EyeOff,
   PlusCircle,
   HelpCircle,
-  Flame,
-  Layers,
   Globe
 } from 'lucide-react';
 import ChurchEmblem, { EMBLEM_PRESETS } from './ChurchEmblem';
@@ -31,16 +29,15 @@ export default function AuthView({
   onToggleTheme,
   onLoginSuccess
 }) {
-  // Modo: 'login' | 'register'
   const [mode, setMode] = useState('login');
 
-  // Estados del formulario de inicio de sesión
+  // Login form state
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [rememberSession, setRememberSession] = useState(true);
 
-  // Estados del formulario de registro
+  // Register form state
   const [churchName, setChurchName] = useState('');
   const [churchSubtitle, setChurchSubtitle] = useState('Ministerio de Alabanza');
   const [adminEmail, setAdminEmail] = useState('');
@@ -52,12 +49,12 @@ export default function AuthView({
   const [customLogoUrl, setCustomLogoUrl] = useState('');
   const [starterOption, setStarterOption] = useState('sample');
 
-  // Estados de carga y alertas
+  // Loading & Error states
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Manejo del Inicio de Sesión (Busca automáticamente en Firestore la iglesia del usuario)
+  // Handle Login con Firebase Cloud
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -73,11 +70,11 @@ export default function AuthView({
     setIsLoading(true);
 
     try {
-      // 1. Validar correo y contraseña con Firebase Auth
+      // 1. Validar autenticación con Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, loginPassword);
       const user = userCredential.user;
 
-      // 2. Buscar en Firestore el documento de la iglesia cuyo sharedEmail coincida con este correo
+      // 2. Buscar en Firestore la iglesia vinculada a este correo
       const churchesRef = collection(db, 'churches');
       const q = query(churchesRef, where('settings.sharedEmail', '==', cleanEmail), limit(1));
       const querySnapshot = await getDocs(q);
@@ -87,13 +84,13 @@ export default function AuthView({
 
       if (!querySnapshot.empty) {
         const churchDoc = querySnapshot.docs[0];
-        churchId = churchDoc.id; // ¡Aquí obtenemos el ID exacto con su sufijo aleatorio!
+        churchId = churchDoc.id;
         const data = churchDoc.data();
         if (data && data.settings && data.settings.name) {
           churchNameVal = data.settings.name;
         }
       } else {
-        // Fallback si no se encuentra en settings, busca por prefijo
+        // Fallback robusto por si el registro previo usó otro formato
         const emailPrefix = cleanEmail.split('@')[0].replace(/[^a-z0-9]+/g, '_');
         churchId = `church_${emailPrefix}_${user.uid.substring(0, 6)}`;
       }
@@ -127,7 +124,7 @@ export default function AuthView({
     }
   };
 
-  // Manejo del Registro de una Nueva Iglesia
+  // Handle Register New Church con Firebase
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -159,11 +156,11 @@ export default function AuthView({
       const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, registerPassword);
       const user = userCredential.user;
 
-      // 2. Generar el ID único en Firestore
+      // 2. Generar ID único para la Firestore Database
       const baseSlug = churchName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_');
       const uniqueId = `church_${baseSlug}_${user.uid.substring(0, 6)}`;
 
-      // 3. Guardar el documento en Firestore asegurando que sharedEmail guarde exactamente el correo ingresado
+      // 3. Guardar el documento inicial en Firestore
       await setDoc(doc(db, 'churches', uniqueId), {
         settings: {
           name: churchName.trim(),
@@ -235,7 +232,7 @@ export default function AuthView({
       <div className="absolute top-1/4 -left-20 w-80 h-80 bg-indigo-500/10 dark:bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-amber-500/10 dark:bg-amber-400/15 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Botón de Tema */}
+      {/* Top Bar with Theme Toggle */}
       <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2 z-20">
         <button
           onClick={onToggleTheme}
@@ -252,7 +249,7 @@ export default function AuthView({
 
       <div className="w-full max-w-lg bg-white dark:bg-midnight-900/95 border border-slate-200 dark:border-midnight-800 rounded-3xl p-5 sm:p-8 shadow-2xl backdrop-blur-xl transition-all relative z-10 my-8">
         
-        {/* Cabecera */}
+        {/* Brand Header */}
         <div className="text-center pb-5 border-b border-slate-100 dark:border-midnight-800">
           <div className="flex justify-center mb-3">
             {mode === 'register' ? (
@@ -277,7 +274,7 @@ export default function AuthView({
           </div>
         </div>
 
-        {/* Pestañas */}
+        {/* Navigation Tabs */}
         <div className="grid grid-cols-2 gap-1.5 p-1.5 my-5 bg-slate-100 dark:bg-midnight-950 rounded-2xl border border-slate-200 dark:border-midnight-800">
           <button
             type="button"
@@ -315,7 +312,7 @@ export default function AuthView({
           </div>
         )}
 
-        {/* Formulario de Login */}
+        {/* Login Form */}
         {mode === 'login' && (
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div>
@@ -369,7 +366,7 @@ export default function AuthView({
               {isLoading ? (
                 <span className="flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Buscando espacio en la nube...</span>
+                  <span>Accediendo a la nube...</span>
                 </span>
               ) : (
                 <>
@@ -381,7 +378,7 @@ export default function AuthView({
           </form>
         )}
 
-        {/* Formulario de Registro */}
+        {/* Register Form */}
         {mode === 'register' && (
           <form onSubmit={handleRegisterSubmit} className="space-y-4">
             <div>

@@ -2,9 +2,9 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
-// Credenciales del proyecto Firebase
+// Credenciales oficiales corregidas del proyecto Firebase
 const firebaseConfig = {
-  apiKey: "AizaSyB0uYWLlxYT6Ai6batEyacvZE5uD68vgug",
+  apiKey: "AIzaSyB0uYWLlxYT6Ai6batEyacvZE5uD68vgug",
   authDomain: "alaba-22734.firebaseapp.com",
   projectId: "alaba-22734",
   storageBucket: "alaba-22734.firebasestorage.app",
