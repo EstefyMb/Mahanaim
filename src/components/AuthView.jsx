@@ -60,13 +60,15 @@ export default function AuthView({
   // List of existing tenants on this machine (for quick switching or demonstration)
   const existingTenants = multiTenantService.getAllTenants();
 
-  // Handle Login con Firebase Cloud (Búsqueda exacta en Firestore)
+  // Handle Login con Firebase Cloud (Búsqueda automática y segura)
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMessage('');
 
-    if (!loginEmail.trim() || !loginPassword.trim()) {
+    const cleanEmail = loginEmail.trim().toLowerCase();
+
+    if (!cleanEmail || !loginPassword) {
       setError('Por favor ingresa tu correo y contraseña.');
       return;
     }
@@ -74,13 +76,13 @@ export default function AuthView({
     setIsLoading(true);
 
     try {
-      // 1. Validar autenticación con Firebase Authentication
-      const userCredential = await signInWithEmailAndPassword(auth, loginEmail.trim(), loginPassword);
+      // 1. Validar correo y contraseña en Firebase Authentication
+      const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, loginPassword);
       const user = userCredential.user;
 
-      // 2. Buscar en la colección 'churches' de Firestore cuál es el documento que pertenece a este correo
+      // 2. Buscar automáticamente en Firestore el documento que pertenezca a este correo exacto
       const churchesRef = collection(db, 'churches');
-      const q = query(churchesRef, where('settings.sharedEmail', '==', user.email.toLowerCase()), limit(1));
+      const q = query(churchesRef, where('settings.sharedEmail', '==', cleanEmail), limit(1));
       const querySnapshot = await getDocs(q);
 
       let churchId = '';
@@ -94,23 +96,23 @@ export default function AuthView({
           churchNameVal = data.settings.name;
         }
       } else {
-        // Fallback por si acaso el documento no tiene el correo exacto en settings
-        const emailPrefix = user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]+/g, '_');
-        churchId = `church_${emailPrefix}`;
+        // Fallback robusto si por alguna razón el registro previo no vinculó el correo en settings
+        const baseSlug = cleanEmail.split('@')[0].replace(/[^a-z0-9]+/g, '_');
+        churchId = `church_${baseSlug}_${user.uid.substring(0, 6)}`;
       }
 
       const churchData = {
         id: churchId,
         name: churchNameVal,
-        adminEmail: user.email
+        adminEmail: cleanEmail
       };
 
       const sessionData = {
         isAuthenticated: true,
         churchId: churchId,
         churchName: churchNameVal,
-        adminEmail: user.email,
-        email: user.email,
+        adminEmail: cleanEmail,
+        email: cleanEmail,
         rememberSession
       };
 
@@ -128,22 +130,24 @@ export default function AuthView({
     }
   };
 
-  // Handle Register New Church con Firebase
+  // Handle Register New Church con Firebase (Guardado automático del correo real)
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMessage('');
 
+    const cleanEmail = adminEmail.trim().toLowerCase();
+
     if (!churchName.trim()) {
       setError('Por favor ingresa el nombre de la congregación o iglesia.');
       return;
     }
-    if (!adminEmail.trim()) {
+    if (!cleanEmail) {
       setError('Por favor ingresa el correo del administrador de la iglesia.');
       return;
     }
-    if (!registerPassword || registerPassword.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.');
+    if (!registerPassword || registerPassword.length < 4) {
+      setError('La contraseña debe tener al menos 4 caracteres.');
       return;
     }
     if (registerPassword !== confirmPassword) {
@@ -154,15 +158,15 @@ export default function AuthView({
     setIsLoading(true);
 
     try {
-      // 1. Crear usuario en Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, adminEmail.trim(), registerPassword);
+      // 1. Crear usuario en Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, registerPassword);
       const user = userCredential.user;
 
       // 2. Generar ID único para la Firestore Database
       const baseSlug = churchName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_');
       const uniqueId = `church_${baseSlug}_${user.uid.substring(0, 6)}`;
 
-      // 3. Guardar el documento inicial en Firestore
+      // 3. Guardar el documento inicial en Firestore asegurando que sharedEmail sea exactamente el correo ingresado
       await setDoc(doc(db, 'churches', uniqueId), {
         settings: {
           name: churchName.trim(),
@@ -170,7 +174,7 @@ export default function AuthView({
           logoType,
           logoPreset,
           customLogoUrl: customLogoUrl.trim(),
-          sharedEmail: adminEmail.trim().toLowerCase(),
+          sharedEmail: cleanEmail, // <--- Aquí se guarda de forma exacta el correo registrado
           sessionActive: true,
           sessionUser: 'Administrador'
         },
@@ -191,15 +195,15 @@ export default function AuthView({
       const tenantData = {
         id: uniqueId,
         name: churchName.trim(),
-        adminEmail: adminEmail.trim().toLowerCase()
+        adminEmail: cleanEmail
       };
 
       const sessionData = {
         isAuthenticated: true,
         churchId: uniqueId,
         churchName: churchName.trim(),
-        adminEmail: adminEmail.trim().toLowerCase(),
-        email: adminEmail.trim().toLowerCase(),
+        adminEmail: cleanEmail,
+        email: cleanEmail,
         rememberSession: true
       };
 
@@ -352,7 +356,7 @@ export default function AuthView({
                   required
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="ej. pastor@mi-iglesia.org"
+                  placeholder="ej. e@gmail.com"
                   className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 font-mono text-xs shadow-inner"
                 />
               </div>
@@ -419,43 +423,6 @@ export default function AuthView({
                 </>
               )}
             </button>
-
-            {/* Quick Church Pick for Multi-Church Testing */}
-            {existingTenants.length > 0 && (
-              <div className="pt-3 border-t border-slate-100 dark:border-midnight-800">
-                <span className="block text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider">
-                  Iglesias registradas en este equipo:
-                </span>
-                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                  {existingTenants.map((tenant) => (
-                    <div
-                      key={tenant.id}
-                      onClick={() => handleSelectExistingChurch(tenant)}
-                      className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                        loginEmail.toLowerCase() === tenant.adminEmail.toLowerCase()
-                          ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-600 dark:text-sky-300'
-                          : 'border-slate-200 dark:border-midnight-800 hover:border-slate-300 dark:hover:border-midnight-700 bg-slate-50/50 dark:bg-midnight-950/60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <ChurchEmblem settings={tenant} size="sm" />
-                        <div className="min-w-0">
-                          <span className="block text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
-                            {tenant.name}
-                          </span>
-                          <span className="block text-[10px] text-slate-400 font-mono truncate">
-                            {tenant.adminEmail}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-bold text-indigo-600 dark:text-sky-400 shrink-0">
-                        Seleccionar
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </form>
         )}
 
@@ -475,7 +442,7 @@ export default function AuthView({
                   required
                   value={churchName}
                   onChange={(e) => setChurchName(e.target.value)}
-                  placeholder="ej. Iglesia Vida & Esperanza, Centro Bíblico..."
+                  placeholder="ej. Iglesia Vida & Esperanza..."
                   className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-inner font-semibold"
                 />
               </div>
@@ -507,13 +474,10 @@ export default function AuthView({
                   required
                   value={adminEmail}
                   onChange={(e) => setAdminEmail(e.target.value)}
-                  placeholder="lider.alabanza@iglesia.org"
+                  placeholder="e@gmail.com"
                   className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 font-mono text-xs shadow-inner"
                 />
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Servirá para que tú y tu equipo accedan desde cualquier celular a sus canciones.
-              </p>
             </div>
 
             {/* Password and Confirm Password */}
@@ -529,7 +493,7 @@ export default function AuthView({
                     required
                     value={registerPassword}
                     onChange={(e) => setRegisterPassword(e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 4 caracteres"
                     className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-10 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 font-mono text-xs shadow-inner"
                   />
                   <button
@@ -625,9 +589,6 @@ export default function AuthView({
                       className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-4 py-2 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
-                  <p className="text-[10px] text-slate-400">
-                    Introduce el enlace directo a la imagen del escudo o logotipo de tu congregación.
-                  </p>
                 </div>
               )}
             </div>
@@ -651,7 +612,7 @@ export default function AuthView({
                     ✨ Con canciones demo
                   </span>
                   <span className="block text-[10px] text-slate-500 mt-0.5">
-                    10 cantos clásicos de alabanza y adoración con acordes
+                    Cantos clásicos de alabanza y adoración con acordes
                   </span>
                 </button>
 
@@ -683,7 +644,7 @@ export default function AuthView({
               {isLoading ? (
                 <span className="flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Creando espacio seguro para tu iglesia...</span>
+                  <span>Creando espacio seguro en la nube...</span>
                 </span>
               ) : (
                 <>
@@ -698,7 +659,7 @@ export default function AuthView({
         {/* Footer info */}
         <div className="mt-6 pt-4 border-t border-slate-100 dark:border-midnight-800/80 text-center text-[11px] text-slate-400">
           <p>
-            Cada congregación cuenta con su espacio multi-tenant en la nube. Tus músicos podrán acceder desde cualquier dispositivo.
+            Cada congregación cuenta con su espacio en la nube de Firebase. Podrás iniciar sesión desde cualquier dispositivo con tu correo y contraseña.
           </p>
         </div>
       </div>
