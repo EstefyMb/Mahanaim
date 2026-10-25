@@ -24,43 +24,40 @@ import ChurchEmblem, { EMBLEM_PRESETS } from './ChurchEmblem';
 import { multiTenantService } from '../services/multiTenantService';
 import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, query, where, limit } from 'firebase/firestore';
 
 export default function AuthView({
   theme,
   onToggleTheme,
   onLoginSuccess
 }) {
-  // Mode: 'login' | 'register'
+  // Modo: 'login' | 'register'
   const [mode, setMode] = useState('login');
 
-  // Login form state
+  // Estados del formulario de inicio de sesión
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [rememberSession, setRememberSession] = useState(true);
 
-  // Register form state
+  // Estados del formulario de registro
   const [churchName, setChurchName] = useState('');
   const [churchSubtitle, setChurchSubtitle] = useState('Ministerio de Alabanza');
   const [adminEmail, setAdminEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
-  const [logoType, setLogoType] = useState('preset'); // 'preset' | 'custom'
+  const [logoType, setLogoType] = useState('preset');
   const [logoPreset, setLogoPreset] = useState('harp');
   const [customLogoUrl, setCustomLogoUrl] = useState('');
-  const [starterOption, setStarterOption] = useState('sample'); // 'sample' | 'empty'
+  const [starterOption, setStarterOption] = useState('sample');
 
-  // Loading & Error states
+  // Estados de carga y alertas
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // List of existing tenants on this machine (for quick switching or demonstration)
-  const existingTenants = multiTenantService.getAllTenants();
-
-  // Handle Login directo y rápido con Firebase Cloud
+  // Manejo del Inicio de Sesión (Busca automáticamente en Firestore la iglesia del usuario)
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -76,24 +73,41 @@ export default function AuthView({
     setIsLoading(true);
 
     try {
-      // 1. Valida credenciales reales en Firebase Authentication
+      // 1. Validar correo y contraseña con Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, loginPassword);
       const user = userCredential.user;
 
-      // 2. Genera el churchId basado en el correo limpio (ej. e@gmail.com -> church_e_123456)
-      const emailPrefix = cleanEmail.split('@')[0].replace(/[^a-z0-9]+/g, '_');
-      const churchId = `church_${emailPrefix}_${user.uid.substring(0, 6)}`;
+      // 2. Buscar en Firestore el documento de la iglesia cuyo sharedEmail coincida con este correo
+      const churchesRef = collection(db, 'churches');
+      const q = query(churchesRef, where('settings.sharedEmail', '==', cleanEmail), limit(1));
+      const querySnapshot = await getDocs(q);
+
+      let churchId = '';
+      let churchNameVal = 'Ministerio de Alabanza';
+
+      if (!querySnapshot.empty) {
+        const churchDoc = querySnapshot.docs[0];
+        churchId = churchDoc.id; // ¡Aquí obtenemos el ID exacto con su sufijo aleatorio!
+        const data = churchDoc.data();
+        if (data && data.settings && data.settings.name) {
+          churchNameVal = data.settings.name;
+        }
+      } else {
+        // Fallback si no se encuentra en settings, busca por prefijo
+        const emailPrefix = cleanEmail.split('@')[0].replace(/[^a-z0-9]+/g, '_');
+        churchId = `church_${emailPrefix}_${user.uid.substring(0, 6)}`;
+      }
 
       const churchData = {
         id: churchId,
-        name: 'Ministerio de Alabanza',
+        name: churchNameVal,
         adminEmail: cleanEmail
       };
 
       const sessionData = {
         isAuthenticated: true,
         churchId: churchId,
-        churchName: 'Ministerio de Alabanza',
+        churchName: churchNameVal,
         adminEmail: cleanEmail,
         email: cleanEmail,
         rememberSession
@@ -113,7 +127,7 @@ export default function AuthView({
     }
   };
 
-  // Handle Register New Church con Firebase
+  // Manejo del Registro de una Nueva Iglesia
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -145,11 +159,11 @@ export default function AuthView({
       const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, registerPassword);
       const user = userCredential.user;
 
-      // 2. Generar el mismo ID único basado en el correo y UID para que el Login lo encuentre siempre igual
-      const emailPrefix = cleanEmail.split('@')[0].replace(/[^a-z0-9]+/g, '_');
-      const uniqueId = `church_${emailPrefix}_${user.uid.substring(0, 6)}`;
+      // 2. Generar el ID único en Firestore
+      const baseSlug = churchName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_');
+      const uniqueId = `church_${baseSlug}_${user.uid.substring(0, 6)}`;
 
-      // 3. Guardar el documento inicial en Firestore
+      // 3. Guardar el documento en Firestore asegurando que sharedEmail guarde exactamente el correo ingresado
       await setDoc(doc(db, 'churches', uniqueId), {
         settings: {
           name: churchName.trim(),
@@ -208,14 +222,6 @@ export default function AuthView({
     }
   };
 
-
-  // Quick switch to demo / existing church
-  const handleSelectExistingChurch = (tenant) => {
-    setLoginEmail(tenant.adminEmail);
-    setLoginPassword(tenant.password);
-    setError('');
-  };
-
   const previewSettings = {
     name: churchName || 'Tu Iglesia',
     logoType,
@@ -226,11 +232,10 @@ export default function AuthView({
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-midnight-950 flex flex-col justify-center items-center p-3 sm:p-6 transition-colors duration-300 relative overflow-x-hidden selection:bg-indigo-500 selection:text-white">
       
-      {/* Background celestial ambient lights */}
       <div className="absolute top-1/4 -left-20 w-80 h-80 bg-indigo-500/10 dark:bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-amber-500/10 dark:bg-amber-400/15 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Top Bar with Theme Toggle */}
+      {/* Botón de Tema */}
       <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2 z-20">
         <button
           onClick={onToggleTheme}
@@ -245,10 +250,9 @@ export default function AuthView({
         </button>
       </div>
 
-      {/* Main Multi-Tenant Auth Card */}
       <div className="w-full max-w-lg bg-white dark:bg-midnight-900/95 border border-slate-200 dark:border-midnight-800 rounded-3xl p-5 sm:p-8 shadow-2xl backdrop-blur-xl transition-all relative z-10 my-8">
         
-        {/* Brand Header */}
+        {/* Cabecera */}
         <div className="text-center pb-5 border-b border-slate-100 dark:border-midnight-800">
           <div className="flex justify-center mb-3">
             {mode === 'register' ? (
@@ -273,19 +277,13 @@ export default function AuthView({
           </div>
         </div>
 
-        {/* Navigation Tabs (Login vs Sign Up) */}
+        {/* Pestañas */}
         <div className="grid grid-cols-2 gap-1.5 p-1.5 my-5 bg-slate-100 dark:bg-midnight-950 rounded-2xl border border-slate-200 dark:border-midnight-800">
           <button
             type="button"
-            onClick={() => {
-              setMode('login');
-              setError('');
-              setSuccessMessage('');
-            }}
+            onClick={() => { setMode('login'); setError(''); setSuccessMessage(''); }}
             className={`py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 ${
-              mode === 'login'
-                ? 'bg-white dark:bg-midnight-850 text-indigo-600 dark:text-white shadow-md'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
+              mode === 'login' ? 'bg-white dark:bg-midnight-850 text-indigo-600 dark:text-white shadow-md' : 'text-slate-500 dark:text-slate-400'
             }`}
           >
             <KeyRound className="w-4 h-4" />
@@ -294,15 +292,9 @@ export default function AuthView({
 
           <button
             type="button"
-            onClick={() => {
-              setMode('register');
-              setError('');
-              setSuccessMessage('');
-            }}
+            onClick={() => { setMode('register'); setError(''); setSuccessMessage(''); }}
             className={`py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 ${
-              mode === 'register'
-                ? 'bg-white dark:bg-midnight-850 text-indigo-600 dark:text-white shadow-md'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
+              mode === 'register' ? 'bg-white dark:bg-midnight-850 text-indigo-600 dark:text-white shadow-md' : 'text-slate-500 dark:text-slate-400'
             }`}
           >
             <Building2 className="w-4 h-4" />
@@ -310,7 +302,6 @@ export default function AuthView({
           </button>
         </div>
 
-        {/* Status Alerts */}
         {error && (
           <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-semibold animate-in fade-in">
             {error}
@@ -324,10 +315,9 @@ export default function AuthView({
           </div>
         )}
 
-        {/* ----------------- TAB 1: INICIAR SESIÓN (LOGIN) ----------------- */}
+        {/* Formulario de Login */}
         {mode === 'login' && (
           <form onSubmit={handleLoginSubmit} className="space-y-4">
-            {/* Email input */}
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
                 Correo de la Iglesia o Administrador
@@ -339,19 +329,17 @@ export default function AuthView({
                   required
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="ej. e@gmail.com"
-                  className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 font-mono text-xs shadow-inner"
+                  placeholder="ej. tu-correo@gmail.com"
+                  className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono text-xs shadow-inner"
                 />
               </div>
             </div>
 
-            {/* Password input */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   Contraseña
                 </label>
-                <span className="text-[11px] text-slate-400">Acceso Seguro</span>
               </div>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -361,43 +349,27 @@ export default function AuthView({
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-10 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 font-mono text-xs shadow-inner"
+                  className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-10 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono text-xs shadow-inner"
                 />
                 <button
                   type="button"
                   onClick={() => setShowLoginPassword(!showLoginPassword)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 absolute right-2.5 top-1/2 -translate-y-1/2"
+                  className="p-1.5 text-slate-400 hover:text-slate-600 absolute right-2.5 top-1/2 -translate-y-1/2"
                 >
                   {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            {/* Remember session checkbox */}
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rememberSession}
-                  onChange={(e) => setRememberSession(e.target.checked)}
-                  className="w-4 h-4 rounded-md border-slate-300 dark:border-midnight-800 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="text-xs text-slate-600 dark:text-slate-400 select-none font-medium">
-                  Recordar mi sesión en este dispositivo
-                </span>
-              </label>
-            </div>
-
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl font-black text-sm bg-gradient-to-r from-indigo-600 via-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 active:scale-[0.99] text-white shadow-xl shadow-indigo-600/30 transition-all border border-indigo-400/20 disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl font-black text-sm bg-gradient-to-r from-indigo-600 via-indigo-600 to-violet-600 text-white shadow-xl shadow-indigo-600/30 transition-all disabled:opacity-50"
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Accediendo al espacio de tu iglesia...</span>
+                  <span>Buscando espacio en la nube...</span>
                 </span>
               ) : (
                 <>
@@ -409,11 +381,9 @@ export default function AuthView({
           </form>
         )}
 
-        {/* ----------------- TAB 2: REGISTRAR NUEVA IGLESIA (SIGN UP) ----------------- */}
+        {/* Formulario de Registro */}
         {mode === 'register' && (
           <form onSubmit={handleRegisterSubmit} className="space-y-4">
-            
-            {/* Church Name */}
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
                 Nombre de la Iglesia / Congregación *
@@ -425,27 +395,12 @@ export default function AuthView({
                   required
                   value={churchName}
                   onChange={(e) => setChurchName(e.target.value)}
-                  placeholder="ej. Iglesia Vida & Esperanza..."
-                  className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-inner font-semibold"
+                  placeholder="ej. Iglesia Vida & Esperanza"
+                  className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-semibold"
                 />
               </div>
             </div>
 
-            {/* Church Subtitle / Ministry */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
-                Lema o Nombre del Ministerio
-              </label>
-              <input
-                type="text"
-                value={churchSubtitle}
-                onChange={(e) => setChurchSubtitle(e.target.value)}
-                placeholder="ej. Ministerio de Alabanza y Adoración"
-                className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-inner text-xs"
-              />
-            </div>
-
-            {/* Admin Email */}
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
                 Correo del Administrador / Líder *
@@ -457,13 +412,12 @@ export default function AuthView({
                   required
                   value={adminEmail}
                   onChange={(e) => setAdminEmail(e.target.value)}
-                  placeholder="e@gmail.com"
-                  className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 font-mono text-xs shadow-inner"
+                  placeholder="tu-correo@gmail.com"
+                  className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono text-xs shadow-inner"
                 />
               </div>
             </div>
 
-            {/* Password and Confirm Password */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
@@ -477,21 +431,14 @@ export default function AuthView({
                     value={registerPassword}
                     onChange={(e) => setRegisterPassword(e.target.value)}
                     placeholder="Mínimo 4 caracteres"
-                    className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-10 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 font-mono text-xs shadow-inner"
+                    className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-10 py-2.5 text-sm text-slate-900 dark:text-slate-100 font-mono text-xs"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowRegisterPassword(!showRegisterPassword)}
-                    className="p-1.5 text-slate-400 hover:text-slate-600 absolute right-2.5 top-1/2 -translate-y-1/2"
-                  >
-                    {showRegisterPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
-                  Confirmar Contraseña *
+                  Confirmar Clave *
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -501,133 +448,21 @@ export default function AuthView({
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Repite la clave"
-                    className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 font-mono text-xs shadow-inner"
+                    className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 font-mono text-xs"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Emblem / Logo Selection (Optional) */}
-            <div className="pt-2 border-t border-slate-100 dark:border-midnight-800">
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Logo / Emblema de la Iglesia (Opcional)
-                </label>
-                <div className="flex items-center gap-1 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={() => setLogoType('preset')}
-                    className={`px-2 py-0.5 rounded-lg font-bold ${
-                      logoType === 'preset'
-                        ? 'bg-indigo-600 text-white'
-                        : 'text-slate-400 hover:text-slate-600'
-                    }`}
-                  >
-                    Presets
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLogoType('custom')}
-                    className={`px-2 py-0.5 rounded-lg font-bold ${
-                      logoType === 'custom'
-                        ? 'bg-indigo-600 text-white'
-                        : 'text-slate-400 hover:text-slate-600'
-                    }`}
-                  >
-                    URL Propia
-                  </button>
-                </div>
-              </div>
-
-              {logoType === 'preset' ? (
-                <div className="grid grid-cols-6 gap-2">
-                  {EMBLEM_PRESETS.map((preset) => (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => setLogoPreset(preset.id)}
-                      className={`p-2 rounded-2xl border flex flex-col items-center justify-center transition-all ${
-                        logoPreset === preset.id
-                          ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/50 ring-2 ring-indigo-500/30 scale-105'
-                          : 'border-slate-200 dark:border-midnight-800 hover:border-slate-400 bg-slate-50 dark:bg-midnight-950'
-                      }`}
-                      title={preset.label}
-                    >
-                      <ChurchEmblem settings={{ logoType: 'preset', logoPreset: preset.id }} size="sm" />
-                      <span className="text-[9px] font-bold mt-1 text-slate-500 truncate w-full text-center">
-                        {preset.label.split(' ')[0]}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <div className="relative">
-                    <Globe className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="url"
-                      value={customLogoUrl}
-                      onChange={(e) => setCustomLogoUrl(e.target.value)}
-                      placeholder="https://mi-iglesia.org/logo.png"
-                      className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-10 pr-4 py-2 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Starter songs choice */}
-            <div className="pt-2 border-t border-slate-100 dark:border-midnight-800">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wider">
-                Catálogo inicial para empezar
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setStarterOption('sample')}
-                  className={`p-2.5 rounded-xl border text-left transition-all ${
-                    starterOption === 'sample'
-                      ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 ring-1 ring-indigo-500/30'
-                      : 'border-slate-200 dark:border-midnight-800 bg-slate-50 dark:bg-midnight-950 text-slate-400'
-                  }`}
-                >
-                  <span className="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                    ✨ Con canciones demo
-                  </span>
-                  <span className="block text-[10px] text-slate-500 mt-0.5">
-                    Cantos clásicos de alabanza y adoración con acordes
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setStarterOption('empty')}
-                  className={`p-2.5 rounded-xl border text-left transition-all ${
-                    starterOption === 'empty'
-                      ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 ring-1 ring-indigo-500/30'
-                      : 'border-slate-200 dark:border-midnight-800 bg-slate-50 dark:bg-midnight-950 text-slate-400'
-                  }`}
-                >
-                  <span className="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                    📂 Biblioteca en blanco
-                  </span>
-                  <span className="block text-[10px] text-slate-500 mt-0.5">
-                    Comenzar desde cero e ir agregando su repertorio
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* Submit Register Button */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl font-black text-sm bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 active:scale-[0.99] text-white shadow-xl shadow-emerald-600/30 transition-all border border-emerald-400/20 disabled:opacity-50 mt-4"
+              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl font-black text-sm bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 text-white shadow-xl shadow-emerald-600/30 transition-all disabled:opacity-50 mt-4"
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Creando espacio seguro en la nube...</span>
+                  <span>Registrando iglesia en la nube...</span>
                 </span>
               ) : (
                 <>
@@ -638,13 +473,6 @@ export default function AuthView({
             </button>
           </form>
         )}
-
-        {/* Footer info */}
-        <div className="mt-6 pt-4 border-t border-slate-100 dark:border-midnight-800/80 text-center text-[11px] text-slate-400">
-          <p>
-            Cada congregación cuenta con su espacio en la nube de Firebase. Podrás iniciar sesión desde cualquier dispositivo con tu correo y contraseña.
-          </p>
-        </div>
       </div>
     </div>
   );
