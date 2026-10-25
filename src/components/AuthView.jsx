@@ -24,7 +24,7 @@ import ChurchEmblem, { EMBLEM_PRESETS } from './ChurchEmblem';
 import { multiTenantService } from '../services/multiTenantService';
 import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, collection, getDocs, query, where, limit } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function AuthView({
   theme,
@@ -60,7 +60,7 @@ export default function AuthView({
   // List of existing tenants on this machine (for quick switching or demonstration)
   const existingTenants = multiTenantService.getAllTenants();
 
-  // Handle Login con Firebase Cloud (Búsqueda automática y segura)
+  // Handle Login directo y rápido con Firebase Cloud
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -76,41 +76,24 @@ export default function AuthView({
     setIsLoading(true);
 
     try {
-      // 1. Validar correo y contraseña en Firebase Authentication
+      // 1. Valida credenciales reales en Firebase Authentication
       const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, loginPassword);
       const user = userCredential.user;
 
-      // 2. Buscar automáticamente en Firestore el documento que pertenezca a este correo exacto
-      const churchesRef = collection(db, 'churches');
-      const q = query(churchesRef, where('settings.sharedEmail', '==', cleanEmail), limit(1));
-      const querySnapshot = await getDocs(q);
-
-      let churchId = '';
-      let churchNameVal = 'Ministerio de Alabanza';
-
-      if (!querySnapshot.empty) {
-        const churchDoc = querySnapshot.docs[0];
-        churchId = churchDoc.id;
-        const data = churchDoc.data();
-        if (data && data.settings && data.settings.name) {
-          churchNameVal = data.settings.name;
-        }
-      } else {
-        // Fallback robusto si por alguna razón el registro previo no vinculó el correo en settings
-        const baseSlug = cleanEmail.split('@')[0].replace(/[^a-z0-9]+/g, '_');
-        churchId = `church_${baseSlug}_${user.uid.substring(0, 6)}`;
-      }
+      // 2. Genera el churchId basado en el correo limpio (ej. e@gmail.com -> church_e_123456)
+      const emailPrefix = cleanEmail.split('@')[0].replace(/[^a-z0-9]+/g, '_');
+      const churchId = `church_${emailPrefix}_${user.uid.substring(0, 6)}`;
 
       const churchData = {
         id: churchId,
-        name: churchNameVal,
+        name: 'Ministerio de Alabanza',
         adminEmail: cleanEmail
       };
 
       const sessionData = {
         isAuthenticated: true,
         churchId: churchId,
-        churchName: churchNameVal,
+        churchName: 'Ministerio de Alabanza',
         adminEmail: cleanEmail,
         email: cleanEmail,
         rememberSession
@@ -130,7 +113,7 @@ export default function AuthView({
     }
   };
 
-  // Handle Register New Church con Firebase (Guardado automático del correo real)
+  // Handle Register New Church con Firebase
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -158,15 +141,15 @@ export default function AuthView({
     setIsLoading(true);
 
     try {
-      // 1. Crear usuario en Firebase Authentication
+      // 1. Crear el usuario en Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, registerPassword);
       const user = userCredential.user;
 
-      // 2. Generar ID único para la Firestore Database
-      const baseSlug = churchName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_');
-      const uniqueId = `church_${baseSlug}_${user.uid.substring(0, 6)}`;
+      // 2. Generar el mismo ID único basado en el correo y UID para que el Login lo encuentre siempre igual
+      const emailPrefix = cleanEmail.split('@')[0].replace(/[^a-z0-9]+/g, '_');
+      const uniqueId = `church_${emailPrefix}_${user.uid.substring(0, 6)}`;
 
-      // 3. Guardar el documento inicial en Firestore asegurando que sharedEmail sea exactamente el correo ingresado
+      // 3. Guardar el documento inicial en Firestore
       await setDoc(doc(db, 'churches', uniqueId), {
         settings: {
           name: churchName.trim(),
@@ -174,7 +157,7 @@ export default function AuthView({
           logoType,
           logoPreset,
           customLogoUrl: customLogoUrl.trim(),
-          sharedEmail: cleanEmail, // <--- Aquí se guarda de forma exacta el correo registrado
+          sharedEmail: cleanEmail,
           sessionActive: true,
           sessionUser: 'Administrador'
         },
