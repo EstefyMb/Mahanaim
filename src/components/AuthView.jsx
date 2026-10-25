@@ -24,7 +24,7 @@ import ChurchEmblem, { EMBLEM_PRESETS } from './ChurchEmblem';
 import { multiTenantService } from '../services/multiTenantService';
 import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, query, where, limit } from 'firebase/firestore';
 
 export default function AuthView({
   theme,
@@ -60,7 +60,7 @@ export default function AuthView({
   // List of existing tenants on this machine (for quick switching or demonstration)
   const existingTenants = multiTenantService.getAllTenants();
 
-  // Handle Login con Firebase Cloud (Sincronizado multi-dispositivo)
+  // Handle Login con Firebase Cloud (Búsqueda exacta en Firestore)
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -74,24 +74,41 @@ export default function AuthView({
     setIsLoading(true);
 
     try {
-      // 1. Validar autenticación real en la nube de Firebase
+      // 1. Validar autenticación con Firebase Authentication
       const userCredential = await signInWithEmailAndPassword(auth, loginEmail.trim(), loginPassword);
       const user = userCredential.user;
 
-      // 2. Derivar o construir el churchId basado en el correo del usuario registrado
-      const emailPrefix = user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]+/g, '_');
-      const churchId = `church_${emailPrefix}`; 
-      
+      // 2. Buscar en la colección 'churches' de Firestore cuál es el documento que pertenece a este correo
+      const churchesRef = collection(db, 'churches');
+      const q = query(churchesRef, where('settings.sharedEmail', '==', user.email.toLowerCase()), limit(1));
+      const querySnapshot = await getDocs(q);
+
+      let churchId = '';
+      let churchNameVal = 'Ministerio de Alabanza';
+
+      if (!querySnapshot.empty) {
+        const churchDoc = querySnapshot.docs[0];
+        churchId = churchDoc.id;
+        const data = churchDoc.data();
+        if (data && data.settings && data.settings.name) {
+          churchNameVal = data.settings.name;
+        }
+      } else {
+        // Fallback por si acaso el documento no tiene el correo exacto en settings
+        const emailPrefix = user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        churchId = `church_${emailPrefix}`;
+      }
+
       const churchData = {
         id: churchId,
-        name: 'Ministerio de Alabanza',
+        name: churchNameVal,
         adminEmail: user.email
       };
 
       const sessionData = {
         isAuthenticated: true,
         churchId: churchId,
-        churchName: 'Ministerio de Alabanza',
+        churchName: churchNameVal,
         adminEmail: user.email,
         email: user.email,
         rememberSession
@@ -153,7 +170,7 @@ export default function AuthView({
           logoType,
           logoPreset,
           customLogoUrl: customLogoUrl.trim(),
-          sharedEmail: adminEmail.trim(),
+          sharedEmail: adminEmail.trim().toLowerCase(),
           sessionActive: true,
           sessionUser: 'Administrador'
         },
@@ -174,15 +191,15 @@ export default function AuthView({
       const tenantData = {
         id: uniqueId,
         name: churchName.trim(),
-        adminEmail: adminEmail.trim()
+        adminEmail: adminEmail.trim().toLowerCase()
       };
 
       const sessionData = {
         isAuthenticated: true,
         churchId: uniqueId,
         churchName: churchName.trim(),
-        adminEmail: adminEmail.trim(),
-        email: adminEmail.trim(),
+        adminEmail: adminEmail.trim().toLowerCase(),
+        email: adminEmail.trim().toLowerCase(),
         rememberSession: true
       };
 
