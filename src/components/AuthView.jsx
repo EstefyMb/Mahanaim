@@ -60,7 +60,7 @@ export default function AuthView({
   // List of existing tenants on this machine (for quick switching or demonstration)
   const existingTenants = multiTenantService.getAllTenants();
 
-  // Handle Login con Firebase
+  // Handle Login con Firebase Cloud (Sincronizado multi-dispositivo)
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -74,10 +74,13 @@ export default function AuthView({
     setIsLoading(true);
 
     try {
+      // 1. Validar autenticación real en la nube de Firebase
       const userCredential = await signInWithEmailAndPassword(auth, loginEmail.trim(), loginPassword);
       const user = userCredential.user;
 
-      const churchId = `church_${user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+      // 2. Derivar o construir el churchId basado en el correo del usuario registrado
+      const emailPrefix = user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      const churchId = `church_${emailPrefix}`; 
       
       const churchData = {
         id: churchId,
@@ -96,10 +99,15 @@ export default function AuthView({
 
       setIsLoading(false);
       onLoginSuccess(sessionData, churchData);
+
     } catch (err) {
       setIsLoading(false);
       console.error(err);
-      setError('Correo o contraseña incorrectos en la base de datos.');
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        setError('Correo o contraseña incorrectos. Verifica tus datos.');
+      } else {
+        setError('Error al iniciar sesión en la nube. Intenta de nuevo.');
+      }
     }
   };
 
@@ -137,7 +145,7 @@ export default function AuthView({
       const baseSlug = churchName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_');
       const uniqueId = `church_${baseSlug}_${user.uid.substring(0, 6)}`;
 
-      // 3. Guardar el documento inicial en Firestore (igual que tu estructura actual)
+      // 3. Guardar el documento inicial en Firestore
       await setDoc(doc(db, 'churches', uniqueId), {
         settings: {
           name: churchName.trim(),
