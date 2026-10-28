@@ -5,31 +5,9 @@ import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 const ACTIVE_SESSION_KEY = 'worship_active_session';
 
-const DEFAULT_DEMO_TENANT = {
-  id: 'iglesia_gracia_demo',
-  name: 'Iglesia Gracia & Verdad',
-  subtitle: 'Ministerio de Alabanza & Adoración',
-  adminEmail: 'equipo@alabanza.org',
-  logoType: 'preset',
-  logoPreset: 'harp',
-  customLogoUrl: ''
-};
-
 class MultiTenantService {
-  constructor() {
-    // No dependemos de localStorage para las cuentas, sino de Firebase Cloud
-  }
+  constructor() {}
 
-  getAllTenants() {
-    // Devuelve al menos la demo para compatibilidad con la UI
-    return [DEFAULT_DEMO_TENANT];
-  }
-
-  getTenantById(churchId) {
-    return { id: churchId, name: 'Ministerio de Alabanza' };
-  }
-
-  // 1. GESTIÓN DE SESIÓN LOCAL (Para mantener la app abierta en el navegador)
   getSession() {
     try {
       const data = localStorage.getItem(ACTIVE_SESSION_KEY);
@@ -52,7 +30,98 @@ class MultiTenantService {
     localStorage.removeItem(ACTIVE_SESSION_KEY);
   }
 
-  // 2. SINCRONIZACIÓN CON FIRESTORE (Nube)
+  // Registrar nueva iglesia en Firestore
+  async register({ churchName, username, password, logo }) {
+    const cleanId = username.trim().toLowerCase().replace(/\s+/g, '_');
+    const cleanName = churchName.trim();
+
+    if (!cleanName || !cleanId || !password) {
+      throw new Error('Todos los campos obligatorios deben ser completados.');
+    }
+
+    const docRef = doc(db, 'churches', cleanId);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      throw new Error('El usuario o ID de iglesia ya existe. Elige otro.');
+    }
+
+    const newChurchData = {
+      id: cleanId,
+      name: cleanName,
+      subtitle: 'Ministerio de Alabanza & Adoración',
+      password: password,
+      logo: logo || 'harp',
+      logoPreset: logo || 'harp',
+      logoType: 'preset',
+      customLogoUrl: '',
+      sessionActive: true,
+      sessionUser: cleanName,
+      sharedEmail: `${cleanId}@alabanza.org`,
+      songs: INITIAL_SONGS,
+      slots: [
+        { id: 'slot-1', category: 'alabanza', song: INITIAL_SONGS[0] },
+        { id: 'slot-2', category: 'alabanza', song: INITIAL_SONGS[1] },
+        { id: 'slot-3', category: 'alabanza', song: INITIAL_SONGS[2] },
+        { id: 'slot-4', category: 'adoracion', song: INITIAL_SONGS[7] },
+        { id: 'slot-5', category: 'adoracion', song: INITIAL_SONGS[8] },
+      ],
+      history: SUNDAY_HISTORY,
+      settings: {
+        ...DEFAULT_CHURCH_SETTINGS,
+        name: cleanName,
+        logoPreset: logo || 'harp'
+      },
+      createdAt: new Date().toISOString()
+    };
+
+    await setDoc(docRef, newChurchData);
+    return newChurchData;
+  }
+
+  // Iniciar sesión con Usuario y Contraseña consultando Firestore
+  async login({ username, password, rememberSession }) {
+    const cleanId = username.trim().toLowerCase().replace(/\s+/g, '_');
+
+    if (!cleanId || !password) {
+      throw new Error('Por favor ingresa tu usuario y contraseña.');
+    }
+
+    const docRef = doc(db, 'churches', cleanId);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      throw new Error('El usuario ingresado no existe en la base de datos.');
+    }
+
+    const churchData = docSnap.data();
+
+    if (churchData.password !== password) {
+      throw new Error('Contraseña incorrecta.');
+    }
+
+    const session = {
+      isAuthenticated: true,
+      churchId: churchData.id,
+      username: churchData.id,
+      churchName: churchData.name,
+      loggedInAt: new Date().toISOString()
+    };
+
+    if (rememberSession) {
+      this.setSession(session);
+    }
+
+    return {
+      church: {
+        id: churchData.id,
+        name: churchData.name,
+        logo: churchData.logo || churchData.logoPreset
+      },
+      session
+    };
+  }
+
   async getSongs(churchId) {
     try {
       if (!churchId) return INITIAL_SONGS;

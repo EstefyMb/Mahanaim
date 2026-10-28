@@ -1,40 +1,57 @@
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from './firebase'; // Importa la autenticación de Firebase que creamos
+import { db } from './firebase'; // Importa la base de datos de Firestore
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function LoginView({
   theme,
   onToggleTheme,
   onLogin
 }) {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleFirebaseLogin = async (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      // Inicia sesión real en la nube de Firebase
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      const cleanUsername = username.trim().toLowerCase();
+      
+      if (!cleanUsername || !password) {
+        throw new Error('Por favor ingresa tu usuario y contraseña.');
+      }
 
-      // Envía los datos de sesión para que la app principal los reconozca
+      // Buscamos la iglesia en Firestore usando el nombre de usuario como ID
+      const docRef = doc(db, 'churches', cleanUsername);
+      const docSnap = await getDoc(docRef);
+
+      if (!docSnap.exists()) {
+        throw new Error('El usuario ingresado no existe en la base de datos.');
+      }
+
+      const churchData = docSnap.data();
+
+      // Validamos la contraseña
+      if (churchData.password !== password) {
+        throw new Error('Contraseña incorrecta.');
+      }
+
+      // Enviamos los datos de sesión para que la app principal reconozca a la iglesia
       onLogin({
         isAuthenticated: true,
-        churchId: 'iglesia_principal', // O el ID que prefieras usar en Firestore
-        churchName: 'Ministerio de Alabanza',
-        email: user.email,
-        userName: user.email,
+        churchId: churchData.id,
+        churchName: churchData.churchName,
+        username: churchData.username,
+        logo: churchData.logo,
         rememberSession: true
       });
 
     } catch (err) {
       console.error(err);
-      setError('Correo o contraseña incorrectos. Verifica tus datos.');
+      setError(err.message || 'Usuario o contraseña incorrectos. Verifica tus datos.');
     } finally {
       setLoading(false);
     }
@@ -45,14 +62,15 @@ export default function LoginView({
       <h2>Iniciar Sesión - Alabanza</h2>
       {error && <p style={{ color: 'red' }}>{error}</p>}
       
-      <form onSubmit={handleFirebaseLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+      <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         <div>
-          <label>Correo de la Iglesia:</label>
+          <label>Usuario:</label>
           <input 
-            type="email" 
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
+            type="text" 
+            value={username} 
+            onChange={(e) => setUsername(e.target.value)} 
             required
+            placeholder="ej. iglesia_central"
             style={{ width: '100%', padding: '8px' }}
           />
         </div>
@@ -64,6 +82,7 @@ export default function LoginView({
             value={password} 
             onChange={(e) => setPassword(e.target.value)} 
             required
+            placeholder="••••••••"
             style={{ width: '100%', padding: '8px' }}
           />
         </div>
