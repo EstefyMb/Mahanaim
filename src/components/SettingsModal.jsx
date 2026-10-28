@@ -80,6 +80,7 @@ export default function SettingsModal({
         {/* Navigation Tabs */}
         <div className="flex border-b border-slate-200 dark:border-midnight-800 px-6 bg-slate-50/50 dark:bg-midnight-950/30">
           <button
+            type="button"
             onClick={() => setActiveTab('identity')}
             className={`py-3 px-4 text-xs font-bold border-b-2 transition-all ${
               activeTab === 'identity'
@@ -90,6 +91,7 @@ export default function SettingsModal({
             Identidad & Logo
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('appearance')}
             className={`py-3 px-4 text-xs font-bold border-b-2 transition-all ${
               activeTab === 'appearance'
@@ -100,6 +102,7 @@ export default function SettingsModal({
             Apariencia ("Azul Medianoche")
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('session')}
             className={`py-3 px-4 text-xs font-bold border-b-2 transition-all ${
               activeTab === 'session'
@@ -269,14 +272,14 @@ export default function SettingsModal({
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
-                      Sesión Compartida Activa
+                      Sesión Segura Activa
                     </span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-300">
                       Permanente
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                    Tu equipo de músicos no requiere re-autenticarse en cada ensayo. Todos los cambios se sincronizan en el almacenamiento local seguro.
+                    Tu equipo de músicos no requiere re-autenticarse en cada ensayo. Todos los cambios se sincronizan de forma segura.
                   </p>
                 </div>
               </div>
@@ -297,20 +300,6 @@ export default function SettingsModal({
                   </div>
                 </div>
               )}
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
-                  Correo Compartido del Equipo
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="email"
-                    value={formData.sharedEmail}
-                    onChange={(e) => setFormData({ ...formData, sharedEmail: e.target.value })}
-                    className="flex-1 bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono text-xs"
-                  />
-                </div>
-              </div>
 
               {/* Repertoire Stats & Reset */}
               <div className="pt-3 border-t border-slate-200 dark:border-midnight-800 flex items-center justify-between">

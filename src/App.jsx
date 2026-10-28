@@ -31,14 +31,6 @@ import {
   deleteDoc 
 } from 'firebase/firestore';
 
-const DEFAULT_INITIAL_SLOTS = [
-  { id: 'slot-1', category: 'alabanza', song: INITIAL_SONGS[0] },
-  { id: 'slot-2', category: 'alabanza', song: INITIAL_SONGS[1] },
-  { id: 'slot-3', category: 'alabanza', song: INITIAL_SONGS[2] },
-  { id: 'slot-4', category: 'adoracion', song: INITIAL_SONGS[7] },
-  { id: 'slot-5', category: 'adoracion', song: INITIAL_SONGS[8] },
-];
-
 export default function App() {
   // 1. Theme State
   const [theme, setTheme] = useState(() => {
@@ -68,7 +60,7 @@ export default function App() {
   // Estados principales de la Iglesia
   const [churchSettings, setChurchSettings] = useState(DEFAULT_CHURCH_SETTINGS);
   const [songs, setSongs] = useState([]);
-  const [slots, setSlots] = useState(DEFAULT_INITIAL_SLOTS);
+  const [slots, setSlots] = useState([]);
   const [history, setHistory] = useState([]);
 
   // ==========================================
@@ -85,30 +77,24 @@ export default function App() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.settings) setChurchSettings(data.settings);
-        if (data.songs && data.songs.length > 0) {
-          setSongs(data.songs);
-        } else {
-          setSongs(INITIAL_SONGS);
-        }
-        if (data.slots && data.slots.length > 0) {
-          setSlots(data.slots);
-        } else {
-          setSlots(DEFAULT_INITIAL_SLOTS);
-        }
-        if (data.history) setHistory(data.history);
+        
+        // CORRECCIÓN: Respetamos los arreglos de la base de datos (incluso si están vacíos [])
+        setSongs(Array.isArray(data.songs) ? data.songs : []);
+        setSlots(Array.isArray(data.slots) ? data.slots : []);
+        setHistory(Array.isArray(data.history) ? data.history : []);
       } else {
-        // Si el documento no existe aún, lo inicializamos con datos por defecto
+        // Si el documento no existe aún, lo inicializamos completamente en blanco
         const initialData = {
           settings: DEFAULT_CHURCH_SETTINGS,
-          songs: INITIAL_SONGS,
-          slots: DEFAULT_INITIAL_SLOTS,
-          history: SUNDAY_HISTORY
+          songs: [],
+          slots: [],
+          history: []
         };
         setDoc(churchDocRef, initialData);
         setChurchSettings(DEFAULT_CHURCH_SETTINGS);
-        setSongs(INITIAL_SONGS);
-        setSlots(DEFAULT_INITIAL_SLOTS);
-        setHistory(SUNDAY_HISTORY);
+        setSongs([]);
+        setSlots([]);
+        setHistory([]);
       }
     });
 
@@ -174,7 +160,7 @@ export default function App() {
   };
 
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [selectedSong, setSelectedSong] = useState(INITIAL_SONGS[7]);
+  const [selectedSong, setSelectedSong] = useState(null);
   const [isSidebarOpenMobile, setIsSidebarOpenMobile] = useState(false);
   const [isNewSongModalOpen, setIsNewSongModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -294,6 +280,11 @@ export default function App() {
   };
 
   const handleAutoSuggest = () => {
+    if (songs.length === 0) {
+      showToast('No hay canciones registradas en el repertorio para sugerir.', 'info');
+      return;
+    }
+
     const sortByOldest = (list) => {
       return [...list].sort((a, b) => {
         const aDays = a.daysAgo === null || a.daysAgo === undefined ? 999 : a.daysAgo;
@@ -441,7 +432,13 @@ export default function App() {
   const handleResetRepertoire = () => {
     persistSongs(INITIAL_SONGS);
     persistHistory(SUNDAY_HISTORY);
-    persistSlots(DEFAULT_INITIAL_SLOTS);
+    persistSlots([
+      { id: 'slot-1', category: 'alabanza', song: INITIAL_SONGS[0] },
+      { id: 'slot-2', category: 'alabanza', song: INITIAL_SONGS[1] },
+      { id: 'slot-3', category: 'alabanza', song: INITIAL_SONGS[2] },
+      { id: 'slot-4', category: 'adoracion', song: INITIAL_SONGS[7] },
+      { id: 'slot-5', category: 'adoracion', song: INITIAL_SONGS[8] },
+    ]);
     showToast('Repertorio restablecido a los datos de demostración.', 'info');
   };
 
@@ -491,7 +488,7 @@ export default function App() {
 
             <button
               onClick={() => setPublishedCelebration(null)}
-              className="w-full mt-5 py-3 rounded-2xl font-black text-sm bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition-all"
+              className="w-full mt-5 py-3 rounded-2xl font-black text-sm bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
             >
               Aceptar y Continuar
             </button>
@@ -578,7 +575,7 @@ export default function App() {
           {activeTab === 'viewer' && (
             <div className="max-w-4xl mx-auto">
               <LyricsTransposer
-                song={selectedSong}
+                song={selectedSong || songs[0]}
                 allSongs={songs}
                 currentSetlist={currentSetlistSongs}
                 onSelectSong={setSelectedSong}

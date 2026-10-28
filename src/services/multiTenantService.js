@@ -1,4 +1,4 @@
-// Multi-Tenant Service for Worship Song Manager (Cloud Firebase Version - Cero Correos)
+// Multi-Tenant Service for Worship Song Manager (Cloud Firebase Version - Cero Correos & Repertorio en Blanco)
 import { INITIAL_SONGS, SUNDAY_HISTORY, DEFAULT_CHURCH_SETTINGS } from '../mockData';
 import { db } from '../firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
@@ -30,7 +30,7 @@ class MultiTenantService {
     localStorage.removeItem(ACTIVE_SESSION_KEY);
   }
 
-  // 1. REGISTRAR NUEVA IGLESIA (Sin correos)
+  // 1. REGISTRAR NUEVA IGLESIA (Sin correos y con repertorio en blanco)
   async register({ churchName, username, password, logo }) {
     const cleanId = username.trim().toLowerCase().replace(/\s+/g, '_');
     const cleanName = churchName.trim();
@@ -46,7 +46,7 @@ class MultiTenantService {
       throw new Error('El usuario o ID de iglesia ya existe. Elige otro.');
     }
 
-    // Estructura limpia SIN correos electrónicos
+    // Estructura limpia SIN correos y en blanco para que ellos metan sus canciones
     const newChurchData = {
       id: cleanId,
       name: cleanName,
@@ -59,15 +59,9 @@ class MultiTenantService {
       customLogoUrl: '',
       sessionActive: true,
       sessionUser: cleanName,
-      songs: INITIAL_SONGS,
-      slots: [
-        { id: 'slot-1', category: 'alabanza', song: INITIAL_SONGS[0] },
-        { id: 'slot-2', category: 'alabanza', song: INITIAL_SONGS[1] },
-        { id: 'slot-3', category: 'alabanza', song: INITIAL_SONGS[2] },
-        { id: 'slot-4', category: 'adoracion', song: INITIAL_SONGS[7] },
-        { id: 'slot-5', category: 'adoracion', song: INITIAL_SONGS[8] },
-      ],
-      history: SUNDAY_HISTORY,
+      songs: [],      // <-- Repertorio inicial vacío
+      slots: [],      // <-- Espacios de setlist limpios
+      history: [],    // <-- Historial vacío
       settings: {
         ...DEFAULT_CHURCH_SETTINGS,
         name: cleanName,
@@ -123,19 +117,19 @@ class MultiTenantService {
     };
   }
 
-  // 3. OBTENER Y GUARDAR DATOS (Canciones, Slots, Historial, Ajustes sin correos)
+  // 3. OBTENER Y GUARDAR DATOS
   async getSongs(churchId) {
     try {
-      if (!churchId) return INITIAL_SONGS;
+      if (!churchId) return [];
       const docRef = doc(db, 'churches', churchId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists() && docSnap.data().songs) {
         return docSnap.data().songs;
       }
-      return INITIAL_SONGS;
+      return [];
     } catch (e) {
       console.error('Error reading songs from cloud:', e);
-      return INITIAL_SONGS;
+      return [];
     }
   }
 

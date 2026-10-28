@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Lock, 
   Sparkles, 
@@ -8,7 +8,8 @@ import {
   CheckCircle2, 
   Users, 
   Eye, 
-  EyeOff 
+  EyeOff,
+  Upload 
 } from 'lucide-react';
 import ChurchEmblem, { EMBLEM_PRESETS } from './ChurchEmblem';
 import { multiTenantService } from '../services/multiTenantService';
@@ -34,15 +35,29 @@ export default function AuthView({
   const [confirmPassword, setConfirmPassword] = useState(''); 
   const [showRegisterPassword, setShowRegisterPassword] = useState(false); 
   
-  // Estado del Logo
+  // Estado del Logo (Presets o Custom)
   const [logoType, setLogoType] = useState('preset'); // 'preset' | 'custom' 
   const [logoPreset, setLogoPreset] = useState('harp'); 
   const [customLogoUrl, setCustomLogoUrl] = useState(''); 
+  const fileInputRef = useRef(null);
 
   // Estados de carga y alertas
   const [isLoading, setIsLoading] = useState(false); 
   const [error, setError] = useState(''); 
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Manejar la subida de imagen propia en el registro
+  const handleLogoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setLogoType('custom');
+        setCustomLogoUrl(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Manejar el inicio de sesión
   const handleLoginSubmit = async (e) => { 
@@ -58,7 +73,6 @@ export default function AuthView({
     setIsLoading(true);
 
     try { 
-      // Llamamos al servicio para validar el usuario y contraseña en Firestore
       const { church, session } = await multiTenantService.login({ 
         username: loginUsername.trim().toLowerCase(), 
         password: loginPassword, 
@@ -101,7 +115,6 @@ export default function AuthView({
     try {
       const finalLogo = logoType === 'preset' ? logoPreset : customLogoUrl;
       
-      // Registramos la iglesia usando únicamente los datos solicitados
       await multiTenantService.register({
         churchName: churchName.trim(),
         username: registerUsername.trim().toLowerCase(),
@@ -303,56 +316,61 @@ export default function AuthView({
               </div>
             </div>
 
-            {/* Logo de la Iglesia */}
+            {/* Logo / Emblema Celestial (Cuadrícula exacta de 6 presets + Subir archivo) */}
             <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">
-                Logo o Emblema
+              <label className="block text-xs font-bold text-slate-300 mb-2 uppercase tracking-wider">
+                Logo / Emblema Celestial
               </label>
-              <div className="flex gap-2 mb-2">
-                <button
-                  type="button"
-                  onClick={() => setLogoType('preset')}
-                  className={`flex-1 py-1.5 text-xs font-bold rounded-xl border ${
-                    logoType === 'preset' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'border-slate-700 text-slate-400'
-                  }`}
-                >
-                  Predeterminado
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLogoType('custom')}
-                  className={`flex-1 py-1.5 text-xs font-bold rounded-xl border ${
-                    logoType === 'custom' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'border-slate-700 text-slate-400'
-                  }`}
-                >
-                  URL de Imagen
-                </button>
+              
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-3">
+                {EMBLEM_PRESETS.map((p) => {
+                  const isSelected = logoType === 'preset' && logoPreset === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setLogoType('preset');
+                        setLogoPreset(p.id);
+                      }}
+                      className={`p-2 rounded-2xl border flex flex-col items-center gap-1 text-center transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-indigo-500/20 border-indigo-500 text-white ring-2 ring-indigo-500/30 shadow-lg'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600'
+                      }`}
+                      title={p.description}
+                    >
+                      <ChurchEmblem settings={{ logoType: 'preset', logoPreset: p.id }} size="sm" />
+                      <span className="text-[10px] font-bold leading-tight line-clamp-1">{p.label}</span>
+                    </button>
+                  );
+                })}
               </div>
 
-              {logoType === 'preset' ? (
-                <div className="flex items-center gap-3 bg-slate-950 p-2.5 rounded-2xl border border-slate-700">
-                  <ChurchEmblem emblem={logoPreset} className="w-10 h-10 shrink-0" />
-                  <select
-                    value={logoPreset}
-                    onChange={(e) => setLogoPreset(e.target.value)}
-                    className="w-full bg-transparent text-xs text-white focus:outline-none cursor-pointer"
-                  >
-                    {Object.keys(EMBLEM_PRESETS).map((key) => (
-                      <option key={key} value={key} className="bg-slate-900 text-white">
-                        {key.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <input 
-                  type="url" 
-                  value={customLogoUrl} 
-                  onChange={(e) => setCustomLogoUrl(e.target.value)} 
-                  placeholder="https://ejemplo.com/logo.png" 
-                  className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 shadow-inner" 
+              {/* Botón para subir logo propio */}
+              <div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleLogoUpload}
+                  accept="image/*"
+                  className="hidden"
                 />
-              )}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-2xl border border-dashed transition-colors text-xs font-bold cursor-pointer ${
+                    logoType === 'custom'
+                      ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300'
+                      : 'bg-slate-950 border-slate-800 hover:border-indigo-500 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  <Upload className="w-4 h-4 shrink-0" />
+                  <span className="truncate">
+                    {logoType === 'custom' ? '¡Logo propio cargado con éxito!' : 'Subir imagen de Logo propia (PNG, JPG, SVG)'}
+                  </span>
+                </button>
+              </div>
             </div>
 
             <button 

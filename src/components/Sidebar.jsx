@@ -6,7 +6,8 @@ import {
   Calendar, 
   ShieldCheck, 
   LogOut,
-  X
+  X,
+  Building2
 } from 'lucide-react';
 import ChurchEmblem from './ChurchEmblem';
 
@@ -150,11 +151,11 @@ export default function Sidebar({
           })}
         </div>
 
-        {/* Bottom Section: Active Session & Logout Pinned to Bottom */}
+        {/* Bottom Section: Active Session & Logout Pinned to Bottom (Sin Correo) */}
         <div className="mt-auto sticky bottom-0 p-4 border-t border-slate-200 dark:border-midnight-800 bg-slate-50/95 dark:bg-midnight-950/95 backdrop-blur-md space-y-2.5 z-10">
-          <div className="flex items-center gap-2 px-1 text-[11px] text-slate-500 dark:text-slate-400 min-w-0">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-            <span className="truncate font-mono">{session?.adminEmail || session?.email || 'equipo@alabanza.org'}</span>
+          <div className="flex items-center gap-2 px-1 text-xs text-indigo-600 dark:text-indigo-400 font-bold min-w-0">
+            <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+            <span className="truncate">{churchSettings?.name || session?.churchName || 'Sesión Segura Activa'}</span>
           </div>
 
           {onLogout && (
