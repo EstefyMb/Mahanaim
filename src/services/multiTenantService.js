@@ -1,4 +1,4 @@
-// Multi-Tenant Service for Worship Song Manager (Cloud Firebase Version)
+// Multi-Tenant Service for Worship Song Manager (Cloud Firebase Version - Cero Correos)
 import { INITIAL_SONGS, SUNDAY_HISTORY, DEFAULT_CHURCH_SETTINGS } from '../mockData';
 import { db } from '../firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
@@ -30,7 +30,7 @@ class MultiTenantService {
     localStorage.removeItem(ACTIVE_SESSION_KEY);
   }
 
-  // Registrar nueva iglesia en Firestore
+  // 1. REGISTRAR NUEVA IGLESIA (Sin correos)
   async register({ churchName, username, password, logo }) {
     const cleanId = username.trim().toLowerCase().replace(/\s+/g, '_');
     const cleanName = churchName.trim();
@@ -46,9 +46,11 @@ class MultiTenantService {
       throw new Error('El usuario o ID de iglesia ya existe. Elige otro.');
     }
 
+    // Estructura limpia SIN correos electrónicos
     const newChurchData = {
       id: cleanId,
       name: cleanName,
+      username: cleanId,
       subtitle: 'Ministerio de Alabanza & Adoración',
       password: password,
       logo: logo || 'harp',
@@ -57,7 +59,6 @@ class MultiTenantService {
       customLogoUrl: '',
       sessionActive: true,
       sessionUser: cleanName,
-      sharedEmail: `${cleanId}@alabanza.org`,
       songs: INITIAL_SONGS,
       slots: [
         { id: 'slot-1', category: 'alabanza', song: INITIAL_SONGS[0] },
@@ -79,7 +80,7 @@ class MultiTenantService {
     return newChurchData;
   }
 
-  // Iniciar sesión con Usuario y Contraseña consultando Firestore
+  // 2. INICIAR SESIÓN CON USUARIO Y CONTRASEÑA
   async login({ username, password, rememberSession }) {
     const cleanId = username.trim().toLowerCase().replace(/\s+/g, '_');
 
@@ -122,6 +123,7 @@ class MultiTenantService {
     };
   }
 
+  // 3. OBTENER Y GUARDAR DATOS (Canciones, Slots, Historial, Ajustes sin correos)
   async getSongs(churchId) {
     try {
       if (!churchId) return INITIAL_SONGS;
