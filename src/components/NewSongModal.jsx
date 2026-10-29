@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Music2, Save } from 'lucide-react';
-import { CATEGORIES } from '../mockData';
+import { X, Music2, Save, Wand2, Sparkles, Check } from 'lucide-react';
+import { convertLaCuerdaToBracketNotation, isLaCuerdaFormat } from '../utils/chordParser';
 
 export default function NewSongModal({ isOpen, onClose, onSave }) {
   const [title, setTitle] = useState('');
@@ -9,6 +9,24 @@ export default function NewSongModal({ isOpen, onClose, onSave }) {
   const [category, setCategory] = useState('alabanza');
   const [daysAgo, setDaysAgo] = useState(0);
   const [lyricsAndChords, setLyricsAndChords] = useState('');
+  const [convertedNotice, setConvertedNotice] = useState(false);
+
+  // Detecta automáticamente si el texto pegado tiene el formato de acordes arriba (LaCuerda)
+  const detectedLaCuerda = isLaCuerdaFormat(lyricsAndChords);
+
+  // Función para convertir los acordes al formato [Acorde] automáticamente
+  const handleConvertLaCuerda = () => {
+    const converted = convertLaCuerdaToBracketNotation(lyricsAndChords);
+    setLyricsAndChords(converted);
+    setConvertedNotice(true);
+    setTimeout(() => setConvertedNotice(false), 3000);
+
+    // Intenta detectar el primer tono y ponerlo como Tono Original automáticamente
+    const toneMatch = converted.match(/\[([A-G][#b]?m?)\]/);
+    if (toneMatch && toneMatch[1]) {
+      setOriginalKey(toneMatch[1]);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -52,7 +70,7 @@ export default function NewSongModal({ isOpen, onClose, onSave }) {
             </div>
             <div>
               <h2 className="text-lg font-black text-slate-900 dark:text-white">Agregar Nueva Canción</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Ingresa los datos y acordes de forma manual.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Ingresa la letra y ajusta los acordes fácilmente.</p>
             </div>
           </div>
           <button
@@ -138,18 +156,54 @@ export default function NewSongModal({ isOpen, onClose, onSave }) {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
-                Letra y Acordes
-              </label>
+              <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Letra y Acordes
+                </label>
+                <button
+                  type="button"
+                  onClick={handleConvertLaCuerda}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/30 transition-all active:scale-95"
+                  title="Convierte automáticamente texto con acordes arriba al formato [Acorde]"
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                  <span>Ajustar formato LaCuerda</span>
+                </button>
+              </div>
+
+              {/* Aviso si detecta formato de acordes arriba */}
+              {detectedLaCuerda && (
+                <div className="mb-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-2 animate-in fade-in">
+                  <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
+                    <Sparkles className="w-4 h-4 shrink-0 text-amber-500" />
+                    <span>Detectamos acordes arriba estilo LaCuerda.net.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleConvertLaCuerda}
+                    className="px-2.5 py-1 rounded-lg text-xs font-black bg-amber-500 hover:bg-amber-400 text-white shadow-sm transition-all shrink-0"
+                  >
+                    Ajustar a corchetes []
+                  </button>
+                </div>
+              )}
+
+              {convertedNotice && (
+                <div className="mb-2 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 animate-in fade-in">
+                  <Check className="w-3.5 h-3.5" />
+                  <span>¡Acordes convertidos exitosamente a corchetes [X]!</span>
+                </div>
+              )}
+
               <textarea
                 rows={10}
                 value={lyricsAndChords}
                 onChange={(e) => setLyricsAndChords(e.target.value)}
-                placeholder="[Intro]&#10;[G] [D] [Am] [Em]&#10;&#10;[Verso 1]&#10;[G] Escribe la letra aquí con sus acordes..."
+                placeholder="Pega la letra y acordes aquí..."
                 className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-xl p-3 font-mono text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 leading-relaxed shadow-inner"
               />
               <span className="text-[11px] text-slate-400 mt-1 block">
-                Usa corchetes para los acordes (ej: [G], [Am]) alineados con la letra.
+                Tip: Pega texto con acordes y toca <strong>"Ajustar formato LaCuerda"</strong> para ordenarlos automáticamente con corchetes `[ ]`.
               </span>
             </div>
           </div>
