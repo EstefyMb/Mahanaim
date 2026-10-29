@@ -232,7 +232,7 @@ export default function LyricsTransposer({
                 className="inline-block px-1.5 py-0.5 my-0.5 mx-0.5 font-bold font-mono rounded-md shadow-sm transition-colors cursor-default text-amber-700 dark:text-amber-300 bg-amber-400/20 dark:bg-amber-400/20 border border-amber-400/40 whitespace-nowrap text-xs sm:text-sm"
                 title={`Acorde: ${chord}`}
               >
-                [{chord}]
+                {chord}
               </span>
             );
           }
