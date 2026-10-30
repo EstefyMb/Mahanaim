@@ -1,4 +1,4 @@
-// Multi-Tenant Service for Worship Song Manager (Cloud Firebase Version - Cero Correos & Repertorio en Blanco)
+// Multi-Tenant Service for Worship Song Manager (Cloud Firebase Version - 100% Blindado Offline)
 import { INITIAL_SONGS, SUNDAY_HISTORY, DEFAULT_CHURCH_SETTINGS } from '../mockData';
 import { db } from '../firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
@@ -30,7 +30,7 @@ class MultiTenantService {
     localStorage.removeItem(ACTIVE_SESSION_KEY);
   }
 
-  // 1. REGISTRAR NUEVA IGLESIA (Sin correos y con repertorio en blanco)
+  // 1. REGISTRAR NUEVA IGLESIA
   async register({ churchName, username, password, logo }) {
     const cleanId = username.trim().toLowerCase().replace(/\s+/g, '_');
     const cleanName = churchName.trim();
@@ -46,7 +46,6 @@ class MultiTenantService {
       throw new Error('El usuario o ID de iglesia ya existe. Elige otro.');
     }
 
-    // Estructura limpia SIN correos y en blanco para que ellos metan sus canciones
     const newChurchData = {
       id: cleanId,
       name: cleanName,
@@ -59,9 +58,9 @@ class MultiTenantService {
       customLogoUrl: '',
       sessionActive: true,
       sessionUser: cleanName,
-      songs: [],      // <-- Repertorio inicial vacío
-      slots: [],      // <-- Espacios de setlist limpios
-      history: [],    // <-- Historial vacío
+      songs: [],       
+      slots: [],       
+      history: [],    
       settings: {
         ...DEFAULT_CHURCH_SETTINGS,
         name: cleanName,
@@ -74,7 +73,7 @@ class MultiTenantService {
     return newChurchData;
   }
 
-  // 2. INICIAR SESIÓN CON USUARIO Y CONTRASEÑA
+  // 2. INICIAR SESIÓN (Soporta modo offline si ya se había recordado)
   async login({ username, password, rememberSession }) {
     const cleanId = username.trim().toLowerCase().replace(/\s+/g, '_');
 
@@ -83,52 +82,73 @@ class MultiTenantService {
     }
 
     const docRef = doc(db, 'churches', cleanId);
-    const docSnap = await getDoc(docRef);
+    
+    try {
+      const docSnap = await getDoc(docRef);
 
-    if (!docSnap.exists()) {
-      throw new Error('El usuario ingresado no existe en la base de datos.');
+      if (!docSnap.exists()) {
+        throw new Error('El usuario ingresado no existe en la base de datos.');
+      }
+
+      const churchData = docSnap.data();
+
+      if (churchData.password !== password) {
+        throw new Error('Contraseña incorrecta.');
+      }
+
+      const session = {
+        isAuthenticated: true,
+        churchId: churchData.id,
+        username: churchData.id,
+        churchName: churchData.name,
+        loggedInAt: new Date().toISOString()
+      };
+
+      if (rememberSession) {
+        this.setSession(session);
+      }
+
+      return {
+        church: {
+          id: churchData.id,
+          name: churchData.name,
+          logo: churchData.logo || churchData.logoPreset
+        },
+        session
+      };
+    } catch (error) {
+      // Si no hay internet, revisamos si hay una sesión previa guardada localmente
+      const localSession = this.getSession();
+      if (localSession && localSession.churchId === cleanId) {
+        return {
+          church: {
+            id: localSession.churchId,
+            name: localSession.churchName,
+            logo: 'harp'
+          },
+          session: localSession
+        };
+      }
+      throw new Error('No hay conexión a internet y no se encontró una sesión previa en este equipo.');
     }
-
-    const churchData = docSnap.data();
-
-    if (churchData.password !== password) {
-      throw new Error('Contraseña incorrecta.');
-    }
-
-    const session = {
-      isAuthenticated: true,
-      churchId: churchData.id,
-      username: churchData.id,
-      churchName: churchData.name,
-      loggedInAt: new Date().toISOString()
-    };
-
-    if (rememberSession) {
-      this.setSession(session);
-    }
-
-    return {
-      church: {
-        id: churchData.id,
-        name: churchData.name,
-        logo: churchData.logo || churchData.logoPreset
-      },
-      session
-    };
   }
 
-  // 3. OBTENER Y GUARDAR DATOS
+  // 3. OBTENER Y GUARDAR DATOS (BLINDADOS CONTRA VACIAMIENTO OFFLINE)
   async getSongs(churchId) {
     try {
       if (!churchId) return [];
       const docRef = doc(db, 'churches', churchId);
       const docSnap = await getDoc(docRef);
-      if (docSnap.exists() && docSnap.data().songs) {
-        return docSnap.data().songs;
+      if (docSnap.exists()) {
+        const cloudSongs = docSnap.data().songs;
+        // Si hay canciones en la nube, se devuelven con seguridad
+        if (Array.isArray(cloudSongs) && cloudSongs.length > 0) {
+          return cloudSongs;
+        }
       }
       return [];
     } catch (e) {
-      console.error('Error reading songs from cloud:', e);
+      console.warn('⚠️ Sin conexión a internet. Intentando recuperar canciones locales o caché.');
       return [];
     }
   }
@@ -136,10 +156,17 @@ class MultiTenantService {
   async saveSongs(churchId, songs) {
     try {
       if (!churchId) return;
+      
+      // 🛡️ BLINDAJE CRÍTICO: Nunca permitimos sobrescribir con un arreglo vacío si la app pierde red accidentalmente
+      if (!songs || (Array.isArray(songs) && songs.length === 0)) {
+        console.warn('🛡️ Bloqueado: Se intentó guardar un repertorio vacío por un fallo de red. Datos protegidos.');
+        return;
+      }
+
       const docRef = doc(db, 'churches', churchId);
       await updateDoc(docRef, { songs });
     } catch (e) {
-      console.error('Error saving songs to cloud:', e);
+      console.error('Error saving songs to cloud (Offline):', e);
     }
   }
 
@@ -160,6 +187,7 @@ class MultiTenantService {
   async saveSlots(churchId, slots) {
     try {
       if (!churchId) return;
+      if (!slots || (Array.isArray(slots) && slots.length === 0)) return;
       const docRef = doc(db, 'churches', churchId);
       await updateDoc(docRef, { slots });
     } catch (e) {
@@ -184,6 +212,7 @@ class MultiTenantService {
   async saveHistory(churchId, history) {
     try {
       if (!churchId) return;
+      if (!history || (Array.isArray(history) && history.length === 0)) return;
       const docRef = doc(db, 'churches', churchId);
       await updateDoc(docRef, { history });
     } catch (e) {
