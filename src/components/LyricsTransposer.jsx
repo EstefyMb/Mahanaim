@@ -15,8 +15,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Gauge,
-  AlignCenter,
-  AlignLeft
+  Columns2,
+  Music2,
+  FileText
 } from 'lucide-react';
 import { 
   transposeChord, 
@@ -39,10 +40,17 @@ export default function LyricsTransposer({
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState(1); // 0.5, 1, 1.5, 2, 2.5
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isCentered, setIsCentered] = useState(true); // Center lyrics & chords by default (ideal for fullscreen atril)
+  const [isTwoColumns, setIsTwoColumns] = useState(false); // Dividir canción en 2 columnas si es muy larga
   const [copied, setCopied] = useState(false);
+  const [showOnlyLyrics, setShowOnlyLyrics] = useState(false); // Toggle: solo letra sin acordes
 
   const containerRef = useRef(null);
+
+  // Setlist navigation (calculado antes de los efectos)
+  const setlistSongs = currentSetlist.filter(Boolean);
+  const currentIndexInSetlist = song ? setlistSongs.findIndex(s => s.id === song.id) : -1;
+  const hasPreviousInSetlist = currentIndexInSetlist > 0;
+  const hasNextInSetlist = currentIndexInSetlist >= 0 && currentIndexInSetlist < setlistSongs.length - 1;
 
   // Sync fullscreen state with browser events (e.g. user presses Esc key)
   useEffect(() => {
@@ -67,6 +75,32 @@ export default function LyricsTransposer({
       containerRef.current.scrollTop = 0;
     }
   }, [song?.id]);
+
+  // Arrow key navigation between songs in setlist (modo atril)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Only navigate if we are in the setlist
+      if (currentIndexInSetlist < 0) return;
+      // Avoid triggering when user is typing in an input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (hasNextInSetlist) {
+          onSelectSong(setlistSongs[currentIndexInSetlist + 1]);
+        }
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (hasPreviousInSetlist) {
+          onSelectSong(setlistSongs[currentIndexInSetlist - 1]);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentIndexInSetlist, setlistSongs, hasPreviousInSetlist, hasNextInSetlist, onSelectSong]);
 
   // Robust, 60fps RequestAnimationFrame Auto-Scroll (Works both in Fullscreen and Normal Window)
   useEffect(() => {
@@ -182,12 +216,6 @@ export default function LyricsTransposer({
     { label: 'XXL', class: 'text-xl sm:text-2xl leading-loose' }
   ];
 
-  // Setlist navigation (if song is in current setlist)
-  const setlistSongs = currentSetlist.filter(Boolean);
-  const currentIndexInSetlist = setlistSongs.findIndex(s => s.id === song.id);
-  const hasPreviousInSetlist = currentIndexInSetlist > 0;
-  const hasNextInSetlist = currentIndexInSetlist >= 0 && currentIndexInSetlist < setlistSongs.length - 1;
-
   const speedOptions = [0.5, 1, 1.5, 2, 2.5];
 
   const cycleSpeed = () => {
@@ -199,9 +227,19 @@ export default function LyricsTransposer({
   const renderFormattedLine = (line, idx) => {
     // Section headers like [Intro], [Verso 1], [Coro], [Puente]
     const sectionMatch = line.match(/^\[(Intro|Verso|Coro|Puente|Outro|Pre-Coro|Instrumental)[^\]]*\]$/i);
+
+    // Expresión regular robusta para detectar cualquier acorde (menores, bemoles, sostenidos)
+    const chordRegex = /(\[[A-Ga-g][#b]?[a-zA-Z0-9]*\])/g;
+
+    // Check if line consists purely of chords and whitespace
+    const isPureChordLine = line.trim().length > 0 && line.replace(chordRegex, '').trim().length === 0;
+
+    // In lyrics-only mode: skip pure chord lines
+    if (showOnlyLyrics && isPureChordLine) return null;
+
     if (sectionMatch) {
       return (
-        <div key={idx} className={`pt-4 pb-1 sm:pt-5 sm:pb-1.5 w-full ${isCentered ? 'text-center flex justify-center' : ''}`}>
+        <div key={idx} className="pt-4 pb-1 sm:pt-5 sm:pb-1.5 w-full text-left">
           <span className="inline-block px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-lg text-[10px] sm:text-xs font-black font-sans tracking-wider bg-indigo-500/15 dark:bg-indigo-500/20 text-indigo-700 dark:text-sky-300 border border-indigo-500/30 uppercase shadow-sm">
             {line.replace(/[\[\]]/g, '')}
           </span>
@@ -209,27 +247,26 @@ export default function LyricsTransposer({
       );
     }
 
-    // Check if line consists purely of chords and whitespace (e.g., chord line above lyrics)
-    const isPureChordLine = line.trim().length > 0 && line.replace(/\[[A-G][^\]]*\]/g, '').trim().length === 0;
-
-    const parts = line.split(/(\[[A-G][^\]]*\])/g);
+    const parts = line.split(chordRegex);
     
     return (
       <div 
         key={idx} 
-        className={`whitespace-pre-wrap font-mono w-full ${
+        className={`whitespace-pre-wrap font-mono w-full text-left ${
           isPureChordLine 
-            ? 'pt-2.5 pb-0 leading-tight text-amber-600 dark:text-amber-400 font-bold' 
+            ? 'pt-2 pb-0 leading-normal text-amber-500 dark:text-amber-400 font-bold' 
             : 'pt-0 pb-1 leading-relaxed text-slate-800 dark:text-slate-100'
-        } ${isCentered ? 'text-center' : 'text-left'}`}
+        }`}
       >
         {parts.map((part, pIdx) => {
           if (part.startsWith('[') && part.endsWith(']')) {
+            // In lyrics-only mode: skip inline chord tokens
+            if (showOnlyLyrics) return null;
             const chord = part.slice(1, -1);
             return (
               <span
                 key={pIdx}
-                className="inline-block px-1.5 py-0.5 my-0.5 mx-0.5 font-bold font-mono rounded-md shadow-sm transition-colors cursor-default text-amber-700 dark:text-amber-300 bg-amber-400/20 dark:bg-amber-400/20 border border-amber-400/40 whitespace-nowrap text-xs sm:text-sm"
+                className="font-bold font-mono text-amber-500 dark:text-amber-400 select-none inline"
                 title={`Acorde: ${chord}`}
               >
                 {chord}
@@ -242,6 +279,33 @@ export default function LyricsTransposer({
     );
   };
 
+  // Helper para dividir canciones largas en 2 columnas de forma natural
+  const getTwoColumnSplit = (lines) => {
+    if (lines.length <= 4) return { left: lines, right: [] };
+    
+    const mid = Math.ceil(lines.length / 2);
+    let bestSplitIndex = mid;
+
+    // Buscar el corte más limpio (salto de línea o inicio de sección) cerca del centro
+    for (let offset = 0; offset <= 6; offset++) {
+      const minus = mid - offset;
+      if (minus > 2 && (!lines[minus].trim() || lines[minus].trim().startsWith('['))) {
+        bestSplitIndex = minus;
+        break;
+      }
+      const plus = mid + offset;
+      if (plus < lines.length - 2 && (!lines[plus].trim() || lines[plus].trim().startsWith('['))) {
+        bestSplitIndex = plus;
+        break;
+      }
+    }
+
+    return {
+      left: lines.slice(0, bestSplitIndex),
+      right: lines.slice(bestSplitIndex)
+    };
+  };
+
   const commonKeys = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'Eb', 'F#', 'Ab', 'Bb'];
 
   return (
@@ -249,7 +313,7 @@ export default function LyricsTransposer({
       ref={containerRef}
       className={`flex flex-col gap-3 sm:gap-4 ${
         isFullscreen 
-          ? 'fixed inset-0 z-50 bg-slate-50 dark:bg-midnight-950 p-4 sm:p-6 overflow-y-auto pb-96' 
+          ? 'fixed inset-0 z-50 bg-slate-50 dark:bg-midnight-950 p-2 sm:p-4 overflow-y-auto pb-44' 
           : 'relative pb-24'
       }`}
     >
@@ -295,21 +359,15 @@ export default function LyricsTransposer({
       )}
 
       {/* Main Atril Reader Card */}
-      <div className={`bg-white dark:bg-midnight-900 border border-slate-200 dark:border-midnight-800 rounded-3xl p-4 sm:p-7 shadow-xl dark:shadow-2xl transition-colors duration-200 ${
-        isFullscreen ? 'max-w-4xl mx-auto w-full' : ''
+      <div className={`bg-white dark:bg-midnight-900 border border-slate-200 dark:border-midnight-800 rounded-3xl shadow-xl dark:shadow-2xl transition-colors duration-200 ${
+        isFullscreen 
+          ? (isTwoColumns ? 'max-w-7xl mx-auto w-full p-3 sm:p-5' : 'max-w-5xl mx-auto w-full p-3 sm:p-5') 
+          : (isTwoColumns ? 'w-full p-4 sm:p-7' : 'p-4 sm:p-7')
       }`}>
         
         {/* Navigation & Song Title Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-midnight-800">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 sm:pb-4 border-b border-slate-200 dark:border-midnight-800">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
-            <button
-              onClick={onBack}
-              className="p-2 sm:p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-midnight-950 dark:hover:bg-midnight-850 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-midnight-800 transition-all active:scale-95 shrink-0"
-              title="Volver"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
@@ -319,33 +377,94 @@ export default function LyricsTransposer({
                   <span>{categoryInfo.emoji}</span>
                   <span>{categoryInfo.name}</span>
                 </span>
+                {isFullscreen && (
+                  <span className="font-mono text-[11px] sm:text-xs font-black px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40 shrink-0">
+                    Tono: {currentKey} {semitones !== 0 ? `(${semitones > 0 ? `+${semitones}` : semitones})` : ''}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                {song.artist} · Tono Original: <strong className="font-mono text-slate-700 dark:text-slate-200">{song.originalKey}</strong>
+                {song.artist} {!isFullscreen && <>· Tono Original: <strong className="font-mono text-slate-700 dark:text-slate-200">{song.originalKey}</strong></>}
               </p>
             </div>
           </div>
 
-          {/* Quick Actions (Full screen, Edit, Copy) */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <button
-              onClick={handleCopyText}
-              className="p-2 sm:p-2.5 rounded-xl bg-slate-100 dark:bg-midnight-950 hover:bg-slate-200 dark:hover:bg-midnight-850 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-midnight-800 text-xs font-bold inline-flex items-center gap-1"
-              title="Copiar letra con acordes"
-            >
-              {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-              <span className="hidden md:inline">{copied ? 'Copiado' : 'Copiar'}</span>
-            </button>
+          {/* Quick Actions (Atril Completo vs Modo Normal) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-wrap">
+            {isFullscreen ? (
+              <>
+                {/* En Modo Atril Completo: Selector de tamaño de letra en lugar de Copiar/Editar */}
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-midnight-950 px-2 py-1 rounded-xl border border-slate-200 dark:border-midnight-800">
+                  <span className="text-[10px] font-bold text-slate-400 mr-0.5 uppercase hidden sm:inline">Letra</span>
+                  <button
+                    onClick={() => setFontSizeIndex(i => Math.max(0, i - 1))}
+                    disabled={fontSizeIndex === 0}
+                    className="px-1.5 py-0.5 rounded-lg text-xs font-black text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-midnight-800 disabled:opacity-30"
+                  >
+                    A-
+                  </button>
+                  <span className="text-xs font-mono font-bold text-indigo-600 dark:text-sky-400 px-1">
+                    {fontSizes[fontSizeIndex].label}
+                  </span>
+                  <button
+                    onClick={() => setFontSizeIndex(i => Math.min(fontSizes.length - 1, i + 1))}
+                    disabled={fontSizeIndex === fontSizes.length - 1}
+                    className="px-1.5 py-0.5 rounded-lg text-xs font-black text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-midnight-800 disabled:opacity-30"
+                  >
+                    A+
+                  </button>
+                </div>
 
-            {onEditSong && (
-              <button
-                onClick={() => onEditSong(song)}
-                className="p-2 sm:p-2.5 rounded-xl bg-slate-100 dark:bg-midnight-950 hover:bg-slate-200 dark:hover:bg-midnight-850 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-midnight-800 text-xs font-bold inline-flex items-center gap-1"
-                title="Editar Letra o Acordes"
-              >
-                <Edit3 className="w-4 h-4" />
-                <span className="hidden md:inline">Editar</span>
-              </button>
+                {/* Botón 2 Columnas */}
+                <button
+                  onClick={() => setIsTwoColumns(!isTwoColumns)}
+                  className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 border transition-all ${
+                    isTwoColumns
+                      ? 'bg-indigo-500/20 text-indigo-700 dark:text-sky-300 border-indigo-500/50 shadow-sm ring-1 ring-indigo-500/30'
+                      : 'bg-slate-100 dark:bg-midnight-950 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-midnight-800 hover:bg-slate-200'
+                  }`}
+                  title={isTwoColumns ? 'Dividido en 2 columnas' : 'Dividir canción en 2 columnas'}
+                >
+                  <Columns2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{isTwoColumns ? '2 Col.' : 'Dividir'}</span>
+                </button>
+
+                {/* Toggle Solo Letra vs Letra + Acordes */}
+                <button
+                  onClick={() => setShowOnlyLyrics(!showOnlyLyrics)}
+                  className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 border transition-all ${
+                    showOnlyLyrics
+                      ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30 shadow-sm'
+                      : 'bg-slate-100 dark:bg-midnight-950 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-midnight-800 hover:bg-slate-200'
+                  }`}
+                  title={showOnlyLyrics ? 'Mostrando solo letra' : 'Mostrando letra y acordes'}
+                >
+                  {showOnlyLyrics ? <FileText className="w-3.5 h-3.5" /> : <Music2 className="w-3.5 h-3.5" />}
+                  <span className="hidden sm:inline">{showOnlyLyrics ? 'Solo Letra' : 'Acordes'}</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleCopyText}
+                  className="p-2 sm:p-2.5 rounded-xl bg-slate-100 dark:bg-midnight-950 hover:bg-slate-200 dark:hover:bg-midnight-850 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-midnight-800 text-xs font-bold inline-flex items-center gap-1"
+                  title="Copiar letra con acordes"
+                >
+                  {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                  <span className="hidden md:inline">{copied ? 'Copiado' : 'Copiar'}</span>
+                </button>
+
+                {onEditSong && (
+                  <button
+                    onClick={() => onEditSong(song)}
+                    className="p-2 sm:p-2.5 rounded-xl bg-slate-100 dark:bg-midnight-950 hover:bg-slate-200 dark:hover:bg-midnight-850 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-midnight-800 text-xs font-bold inline-flex items-center gap-1"
+                    title="Editar Letra o Acordes"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    <span className="hidden md:inline">Editar</span>
+                  </button>
+                )}
+              </>
             )}
 
             <button
@@ -359,10 +478,11 @@ export default function LyricsTransposer({
           </div>
         </div>
 
-        {/* Musician Control Panel (Responsive) */}
-        <div className="my-4 p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-midnight-950/80 border border-slate-200 dark:border-midnight-800 space-y-3.5">
-          
-          {/* Tone Selector & Transposition Controls */}
+        {/* Musician Control Panel (Solo visible fuera del modo pantalla completa) */}
+        {!isFullscreen && (
+          <div className="my-4 p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-midnight-950/80 border border-slate-200 dark:border-midnight-800 space-y-3.5">
+            
+            {/* Tone Selector & Transposition Controls */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             
             {/* Current Key Indicator & Step Buttons */}
@@ -432,18 +552,32 @@ export default function LyricsTransposer({
                 </button>
               </div>
 
-              {/* Text Alignment Button (Centrado vs Izquierda) */}
+              {/* Botón Dividir Canción en 2 Columnas */}
               <button
-                onClick={() => setIsCentered(!isCentered)}
+                onClick={() => setIsTwoColumns(!isTwoColumns)}
                 className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 border transition-all ${
-                  isCentered
-                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 shadow-sm'
+                  isTwoColumns
+                    ? 'bg-indigo-500/20 text-indigo-700 dark:text-sky-300 border-indigo-500/50 shadow-sm ring-1 ring-indigo-500/30'
                     : 'bg-white dark:bg-midnight-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-midnight-800 hover:bg-slate-50'
                 }`}
-                title={isCentered ? 'Centrado activado' : 'Alinear a la izquierda'}
+                title={isTwoColumns ? 'Dividido en 2 columnas (Clic para 1 columna)' : 'Dividir canción en 2 columnas'}
               >
-                {isCentered ? <AlignCenter className="w-3.5 h-3.5" /> : <AlignLeft className="w-3.5 h-3.5" />}
-                <span className="hidden sm:inline">{isCentered ? 'Centrado' : 'Izquierda'}</span>
+                <Columns2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{isTwoColumns ? '2 Columnas' : 'Dividir en 2'}</span>
+              </button>
+
+              {/* Toggle Solo Letra vs Letra + Acordes */}
+              <button
+                onClick={() => setShowOnlyLyrics(!showOnlyLyrics)}
+                className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 border transition-all ${
+                  showOnlyLyrics
+                    ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30 shadow-sm'
+                    : 'bg-white dark:bg-midnight-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-midnight-800 hover:bg-slate-50'
+                }`}
+                title={showOnlyLyrics ? 'Mostrando solo letra' : 'Mostrando letra y acordes'}
+              >
+                {showOnlyLyrics ? <FileText className="w-3.5 h-3.5" /> : <Music2 className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline">{showOnlyLyrics ? 'Solo Letra' : 'Letra y Acordes'}</span>
               </button>
 
               {/* Auto Scroll Button */}
@@ -494,14 +628,24 @@ export default function LyricsTransposer({
             })}
           </div>
         </div>
+        )}
 
-        {/* Chords and Lyrics Sheet (Modo Atril Centrado / Alineado) */}
-        <div className={`mt-4 sm:mt-6 font-mono select-text transition-all duration-200 overflow-x-auto w-full ${
-          isCentered ? 'text-center flex flex-col items-center justify-center' : ''
-        } ${fontSizes[fontSizeIndex].class}`}>
-          <div className={`w-full max-w-3xl ${isCentered ? 'text-center' : ''}`}>
-            {transposedLyrics.split('\n').map((line, idx) => renderFormattedLine(line, idx))}
-          </div>
+        {/* Chords and Lyrics Sheet (1 Columna o Dividido en 2 Columnas) */}
+        <div className={`mt-4 sm:mt-6 font-mono select-text transition-all duration-200 overflow-x-auto w-full ${fontSizes[fontSizeIndex].class}`}>
+          {isTwoColumns ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 w-full text-left">
+              <div className="space-y-0 text-left border-b md:border-b-0 md:border-r border-slate-200 dark:border-midnight-800 pb-6 md:pb-0 md:pr-8">
+                {getTwoColumnSplit(transposedLyrics.split('\n')).left.map((line, idx) => renderFormattedLine(line, `col1-${idx}`))}
+              </div>
+              <div className="space-y-0 text-left">
+                {getTwoColumnSplit(transposedLyrics.split('\n')).right.map((line, idx) => renderFormattedLine(line, `col2-${idx}`))}
+              </div>
+            </div>
+          ) : (
+            <div className="w-full max-w-3xl text-left">
+              {transposedLyrics.split('\n').map((line, idx) => renderFormattedLine(line, idx))}
+            </div>
+          )}
         </div>
       </div>
 

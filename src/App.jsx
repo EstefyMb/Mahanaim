@@ -10,7 +10,6 @@ import NewSongModal from './components/NewSongModal';
 import EditSongModal from './components/EditSongModal';
 import SettingsModal from './components/SettingsModal';
 import AuthView from './components/AuthView';
-import multiTenantService from './services/multiTenantService';
 import { 
   INITIAL_SONGS, 
   SUNDAY_HISTORY, 
@@ -18,7 +17,7 @@ import {
 } from './mockData';
 import { CheckCircle2, Info, PartyPopper } from 'lucide-react';
 
-// Importaciones de Firebase Firestore
+// Firebase Firestore
 import { db } from './firebase';
 import { 
   collection, 
@@ -30,6 +29,9 @@ import {
   updateDoc, 
   deleteDoc 
 } from 'firebase/firestore';
+
+// Servicio Cloud Firestore de la Iglesia
+import { getStoredSession, saveStoredSession, logoutChurch } from './services/firebaseService';
 
 export default function App() {
   // 1. Theme State
@@ -50,9 +52,9 @@ export default function App() {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // 2. Multi-Tenant Session & Active Church
+  // 2. Multi-Tenant Session & Active Church (Persistente en la nube y equipo)
   const [session, setSession] = useState(() => {
-    return multiTenantService.getSession();
+    return getStoredSession();
   });
 
   const activeChurchId = session?.churchId || null;
@@ -73,30 +75,25 @@ export default function App() {
     const churchDocRef = doc(db, "churches", activeChurchId);
 
     // Escuchar cambios en tiempo real desde la base de datos
-    const unsubscribe = onSnapshot(churchDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.settings) setChurchSettings(data.settings);
-        
-        // CORRECCIÓN: Respetamos los arreglos de la base de datos (incluso si están vacíos [])
-        setSongs(Array.isArray(data.songs) ? data.songs : []);
-        setSlots(Array.isArray(data.slots) ? data.slots : []);
-        setHistory(Array.isArray(data.history) ? data.history : []);
-      } else {
-        // Si el documento no existe aún, lo inicializamos completamente en blanco
-        const initialData = {
-          settings: DEFAULT_CHURCH_SETTINGS,
-          songs: [],
-          slots: [],
-          history: []
-        };
-        setDoc(churchDocRef, initialData);
-        setChurchSettings(DEFAULT_CHURCH_SETTINGS);
-        setSongs([]);
-        setSlots([]);
-        setHistory([]);
+    const unsubscribe = onSnapshot(
+      churchDocRef, 
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.settings) setChurchSettings(data.settings);
+          
+          // Respetamos los datos en la nube sin borrar nada
+          if (Array.isArray(data.songs)) setSongs(data.songs);
+          if (Array.isArray(data.slots)) setSlots(data.slots);
+          if (Array.isArray(data.history)) setHistory(data.history);
+        } else {
+          console.warn("Documento de la iglesia en proceso de lectura:", activeChurchId);
+        }
+      },
+      (error) => {
+        console.error("Error en conexión en tiempo real con Firestore:", error);
       }
-    });
+    );
 
     return () => unsubscribe();
   }, [activeChurchId]);
@@ -146,21 +143,65 @@ export default function App() {
 
   const [serviceDate, setServiceDate] = useState(getDefaultSundayDate());
   const [serviceNotes, setServiceNotes] = useState('Culto Dominical con transición fluida de Alabanza a Adoración.');
+  const [editingHistoryId, setEditingHistoryId] = useState(null);
 
   const handleLoginSuccess = (sessionData, churchData) => {
+    saveStoredSession(sessionData);
     setSession(sessionData);
     setActiveTab('dashboard');
     showToast(`¡Bienvenido al portal de ${churchData.name}!`, 'success');
   };
 
   const handleLogout = () => {
-    multiTenantService.logout();
+    logoutChurch();
     setSession(null);
     showToast('Sesión de iglesia cerrada.', 'info');
   };
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedSong, setSelectedSong] = useState(null);
+  const [activeSundayHistoryId, setActiveSundayHistoryId] = useState(null);
+
+  // Canciones activas en el Modo Atril:
+  // Requisito: Van las canciones que están en el historial de ese domingo
+  const atrilSongs = useMemo(() => {
+    // 1. Si se seleccionó un domingo específico del historial
+    if (activeSundayHistoryId) {
+      const record = history.find(h => h.id === activeSundayHistoryId);
+      if (record && Array.isArray(record.setlist)) {
+        const found = record.setlist
+          .map(item => songs.find(s => s.id === item.songId))
+          .filter(Boolean);
+        if (found.length > 0) return found;
+      }
+    }
+
+    // 2. Si el armador tiene canciones asignadas actualmente
+    const currentSlotSongs = slots.map(s => s.song).filter(Boolean);
+    if (currentSlotSongs.length > 0) {
+      return currentSlotSongs;
+    }
+
+    // 3. Regla principal: Las canciones del historial del último domingo publicado
+    if (history.length > 0 && Array.isArray(history[0]?.setlist)) {
+      const found = history[0].setlist
+        .map(item => songs.find(s => s.id === item.songId))
+        .filter(Boolean);
+      if (found.length > 0) return found;
+    }
+
+    // 4. Fallback si no hay historial aún
+    return songs;
+  }, [activeSundayHistoryId, history, slots, songs]);
+
+  // Mantener una canción seleccionada por defecto para el modo atril
+  useEffect(() => {
+    if (atrilSongs.length > 0) {
+      if (!selectedSong || !atrilSongs.some(s => s.id === selectedSong.id)) {
+        setSelectedSong(atrilSongs[0]);
+      }
+    }
+  }, [atrilSongs, selectedSong]);
   const [isSidebarOpenMobile, setIsSidebarOpenMobile] = useState(false);
   const [isNewSongModalOpen, setIsNewSongModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -326,21 +367,41 @@ export default function App() {
       year: 'numeric'
     });
 
-    const newHistoryEntry = {
-      id: `history-${Date.now()}`,
-      date: formattedDate,
-      relativeDays: 'Publicado',
-      notes: serviceNotes,
-      setlist: slots.map((s, idx) => ({
-        order: idx + 1,
-        songId: s.song.id,
-        title: s.song.title,
-        key: s.song.originalKey,
-        category: s.category
-      }))
-    };
+    const setlistPayload = slots.map((s, idx) => ({
+      order: idx + 1,
+      songId: s.song.id,
+      title: s.song.title,
+      artist: s.song.artist,
+      key: s.song.originalKey,
+      category: s.category
+    }));
 
-    const nextHistory = [newHistoryEntry, ...history];
+    let nextHistory;
+    let savedHistoryId;
+
+    if (editingHistoryId) {
+      // Modificando una lista ya creada
+      nextHistory = history.map(h => h.id === editingHistoryId ? {
+        ...h,
+        notes: serviceNotes,
+        date: formattedDate,
+        setlist: setlistPayload
+      } : h);
+      savedHistoryId = editingHistoryId;
+      setEditingHistoryId(null);
+    } else {
+      // Creando una lista nueva
+      savedHistoryId = `history-${Date.now()}`;
+      const newHistoryEntry = {
+        id: savedHistoryId,
+        date: formattedDate,
+        relativeDays: 'Publicado',
+        notes: serviceNotes,
+        setlist: setlistPayload
+      };
+      nextHistory = [newHistoryEntry, ...history];
+    }
+
     persistHistory(nextHistory);
 
     const setlistSongIds = new Set(slots.map(s => s.song.id));
@@ -357,17 +418,30 @@ export default function App() {
 
     persistSongs(nextSongs);
 
-    const updatedActiveSlots = slots.map(s => ({
-      ...s,
-      song: s.song ? { ...s.song, daysAgo: 0, lastPlayedDate: formattedDate } : null
-    }));
-    persistSlots(updatedActiveSlots);
+    // Guardar copia para posible modificación inmediata
+    const savedSlotsSnapshot = slots.map(s => ({ ...s }));
+
+    // Requisito: En cuanto se crea la lista, se queda en blanco la parte de crear nueva lista
+    const clearedSlots = slots.map(s => ({ ...s, song: null }));
+    persistSlots(clearedSlots);
 
     setPublishedCelebration({
       date: formattedDate,
-      songs: slots.map(s => s.song)
+      historyId: savedHistoryId,
+      songs: savedSlotsSnapshot.map(s => s.song),
+      slotsSnapshot: savedSlotsSnapshot
     });
-    showToast('💾 ¡Culto publicado y guardado en la nube!', 'success');
+
+    showToast('💾 ¡Culto guardado en la nube! El armador ha quedado en blanco para la próxima lista.', 'success');
+  };
+
+  const handleEditPublishedNow = () => {
+    if (publishedCelebration?.slotsSnapshot) {
+      persistSlots(publishedCelebration.slotsSnapshot);
+      setEditingHistoryId(publishedCelebration.historyId);
+      setPublishedCelebration(null);
+      showToast('Lista restaurada para modificar canciones.', 'info');
+    }
   };
 
   const handleViewLyrics = (song) => {
@@ -383,6 +457,24 @@ export default function App() {
     }
   };
 
+  const handleOpenSundayInAtril = (historicalRecord, startSongId = null) => {
+    setActiveSundayHistoryId(historicalRecord.id);
+    const sundaySongs = historicalRecord.setlist
+      .map(item => songs.find(s => s.id === item.songId))
+      .filter(Boolean);
+
+    const targetSong = startSongId ? songs.find(s => s.id === startSongId) : sundaySongs[0];
+    if (targetSong) {
+      setSelectedSong(targetSong);
+    } else if (sundaySongs[0]) {
+      setSelectedSong(sundaySongs[0]);
+    }
+
+    setActiveTab('viewer');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast(`Modo Atril: Culto del ${historicalRecord.date}`, 'info');
+  };
+
   const handleLoadHistoricalSetlist = (historicalRecord) => {
     const loadedSlots = historicalRecord.setlist.map((item, idx) => {
       const foundSong = songs.find(s => s.id === item.songId);
@@ -394,8 +486,10 @@ export default function App() {
     });
 
     persistSlots(loadedSlots);
+    setEditingHistoryId(historicalRecord.id);
+    if (historicalRecord.notes) setServiceNotes(historicalRecord.notes);
     setActiveTab('dashboard');
-    showToast(`Plantilla cargada en el Setlist.`, 'success');
+    showToast(`Lista de "${historicalRecord.date}" cargada. Puedes cambiar cantos y volver a guardar.`, 'info');
   };
 
   const handleSaveNewSong = (newSong) => {
@@ -483,15 +577,24 @@ export default function App() {
             </h3>
             
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
-              El servicio para el <strong>{publishedCelebration.date}</strong> ha sido guardado en Firestore.
+              El servicio para el <strong>{publishedCelebration.date}</strong> ha sido guardado en Firestore. El armador ha quedado en blanco para armar tu próximo culto.
             </p>
 
-            <button
-              onClick={() => setPublishedCelebration(null)}
-              className="w-full mt-5 py-3 rounded-2xl font-black text-sm bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
-            >
-              Aceptar y Continuar
-            </button>
+            <div className="mt-5 space-y-2">
+              <button
+                onClick={() => setPublishedCelebration(null)}
+                className="w-full py-3 rounded-2xl font-black text-xs sm:text-sm bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+              >
+                Listo (Crear Nueva Lista en Blanco)
+              </button>
+
+              <button
+                onClick={handleEditPublishedNow}
+                className="w-full py-2.5 rounded-2xl font-bold text-xs bg-slate-100 hover:bg-slate-200 dark:bg-midnight-950 dark:hover:bg-midnight-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-midnight-800 transition-all cursor-pointer"
+              >
+                ✏️ Modificar esta lista si necesitas cambiar alguna canción
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -535,6 +638,12 @@ export default function App() {
                   setServiceDate={setServiceDate}
                   serviceNotes={serviceNotes}
                   setServiceNotes={setServiceNotes}
+                  editingHistoryId={editingHistoryId}
+                  onCancelEditHistory={() => {
+                    setEditingHistoryId(null);
+                    handleClearAllSlots();
+                    showToast('Modificación cancelada. Armador en blanco.', 'info');
+                  }}
                   onAssignSongToSlot={handleAssignSongToSlot}
                   onClearSlotSong={handleClearSlotSong}
                   onAddSlot={handleAddSlot}
@@ -573,13 +682,13 @@ export default function App() {
           )}
 
           {activeTab === 'viewer' && (
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-6xl mx-auto w-full">
               <LyricsTransposer
-                song={selectedSong || songs[0]}
+                song={selectedSong || atrilSongs[0] || songs[0]}
                 allSongs={songs}
-                currentSetlist={currentSetlistSongs}
+                currentSetlist={atrilSongs}
                 onSelectSong={setSelectedSong}
-                onBack={() => setActiveTab('repertoire')}
+                onBack={() => setActiveTab(activeSundayHistoryId ? 'history' : 'dashboard')}
                 onEditSong={(song) => setEditingSong(song)}
               />
             </div>
@@ -589,8 +698,10 @@ export default function App() {
             <div className="max-w-4xl mx-auto">
               <SundayHistory
                 history={history}
+                allSongs={songs}
                 onLoadHistoricalSetlist={handleLoadHistoricalSetlist}
                 onViewSongLyrics={handleViewSongLyricsById}
+                onOpenSundayInAtril={handleOpenSundayInAtril}
               />
             </div>
           )}

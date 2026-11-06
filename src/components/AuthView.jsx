@@ -12,7 +12,7 @@ import {
   Upload 
 } from 'lucide-react';
 import ChurchEmblem, { EMBLEM_PRESETS } from './ChurchEmblem';
-import { multiTenantService } from '../services/multiTenantService';
+import { registerChurch, loginChurch } from '../services/firebaseService';
 
 export default function AuthView({ 
   theme, 
@@ -73,11 +73,10 @@ export default function AuthView({
     setIsLoading(true);
 
     try { 
-      const { church, session } = await multiTenantService.login({ 
-        username: loginUsername.trim().toLowerCase(), 
-        password: loginPassword, 
-        rememberSession 
-      }); 
+      const { church, session } = await loginChurch(
+        loginUsername.trim().toLowerCase(),
+        loginPassword
+      ); 
       
       setIsLoading(false); 
       onLoginSuccess(session, church); 
@@ -113,13 +112,13 @@ export default function AuthView({
     setIsLoading(true);
 
     try {
-      const finalLogo = logoType === 'preset' ? logoPreset : customLogoUrl;
-      
-      await multiTenantService.register({
+      await registerChurch({
         churchName: churchName.trim(),
         username: registerUsername.trim().toLowerCase(),
         password: registerPassword,
-        logo: finalLogo
+        logoType,
+        logoPreset,
+        customLogoUrl
       });
 
       setIsLoading(false);

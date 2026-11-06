@@ -15,9 +15,13 @@ import {
   X,
   GripVertical,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Copy,
+  Check,
+  Share2
 } from 'lucide-react';
 import { CATEGORIES, getRotationStatus } from '../mockData';
+import { formatSetlistForSocialShare } from '../utils/shareFormatter';
 
 export default function SetlistBuilder({
   slots, // Array of { id, category: 'alabanza'|'adoracion', song: song|null }
@@ -26,6 +30,8 @@ export default function SetlistBuilder({
   setServiceDate,
   serviceNotes,
   setServiceNotes,
+  editingHistoryId = null,
+  onCancelEditHistory,
   onAssignSongToSlot,
   onClearSlotSong,
   onAddSlot,
@@ -40,6 +46,7 @@ export default function SetlistBuilder({
   const [selectedSlotForDrawer, setSelectedSlotForDrawer] = useState(null);
   const [draggedSlotId, setDraggedSlotId] = useState(null);
   const [dragOverSlotId, setDragOverSlotId] = useState(null);
+  const [copiedShare, setCopiedShare] = useState(false);
 
   // Group slots into the 2 blocks
   const alabanzaSlots = slots.filter(s => s.category === 'alabanza');
@@ -103,6 +110,24 @@ export default function SetlistBuilder({
   return (
     <div className="bg-white dark:bg-midnight-900 border border-slate-200 dark:border-midnight-800 rounded-3xl p-5 md:p-6 flex flex-col h-full shadow-xl dark:shadow-2xl transition-colors duration-200 relative overflow-hidden">
       
+      {/* Modifying Existing Setlist Notice */}
+      {editingHistoryId && (
+        <div className="mb-4 p-3 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-200 flex items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-bold">✏️ Modificando lista guardada</span>
+            <span className="text-[11px] opacity-80">(Al publicar se actualizarán los cambios)</span>
+          </div>
+          {onCancelEditHistory && (
+            <button
+              onClick={onCancelEditHistory}
+              className="px-2.5 py-1 rounded-xl bg-white dark:bg-midnight-900 text-slate-700 dark:text-slate-300 font-bold border border-slate-200 dark:border-midnight-700 hover:bg-slate-100"
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Top Header */}
       <div className="relative pb-4 border-b border-slate-200 dark:border-midnight-800">
         <div className="flex items-center justify-between gap-3">
@@ -629,7 +654,25 @@ export default function SetlistBuilder({
       )}
 
       {/* Save Action Button */}
-      <div className="pt-3.5 mt-auto border-t border-slate-200 dark:border-midnight-800">
+      <div className="pt-3.5 mt-auto border-t border-slate-200 dark:border-midnight-800 space-y-2">
+        {/* Copy for WhatsApp */}
+        {filledCount > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              const text = formatSetlistForSocialShare(slots, serviceDate, allSongs);
+              navigator.clipboard.writeText(text).then(() => {
+                setCopiedShare(true);
+                setTimeout(() => setCopiedShare(false), 2500);
+              });
+            }}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-2xl font-bold text-xs transition-all border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 active:scale-[0.99]"
+          >
+            {copiedShare ? <Check className="w-4 h-4 text-emerald-500" /> : <Share2 className="w-4 h-4" />}
+            <span>{copiedShare ? '¡Copiado! Lista lista para compartir' : 'Copiar lista para WhatsApp'}</span>
+          </button>
+        )}
+
         <button
           onClick={onPublishSetlist}
           disabled={!isComplete}
@@ -642,7 +685,7 @@ export default function SetlistBuilder({
           <Save className="w-4 h-4" />
           <span>
             {isComplete 
-              ? `Publicar lista` 
+              ? (editingHistoryId ? 'Guardar cambios en la lista' : 'Publicar lista')
               : `Completa todos los cantos asignados (${filledCount}/${totalSlotsCount})`}
           </span>
         </button>

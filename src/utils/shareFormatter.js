@@ -1,24 +1,21 @@
-// Helper for formatting setlist for WhatsApp and social networks sharing
-// Strict format requested:
-// DOMINGO (DIA) DE (MES) (in uppercase)
-// [blank line]
-// song1/artist1 (in lowercase)
-// song2/artist2
-// [blank line]
-// song3/artist3
-// song4/artist4
+// Helper para formatear el setlist para compartir en WhatsApp y redes sociales
+// Formato requerido:
+// DOMINGO (DIA) DE (MES) (en MAYÚSCULAS)
+// [línea en blanco]
+// • Nombre de Canción / Nombre de Autor
+// • Nombre de Canción 2 / Nombre de Autor 2
+// [línea en blanco]
+// • Nombre de Canción 3 / Nombre de Autor 3
 
-export function formatSetlistForSocialShare(slotsOrItems, serviceDateString) {
-  // 1. Date Header
+export function formatSetlistForSocialShare(slotsOrItems = [], serviceDateString = '', allSongs = []) {
+  // 1. Encabezado de Fecha
   let dateHeader = 'DOMINGO';
 
   if (serviceDateString) {
-    // Check if it's already a Spanish text like "25 de octubre de 2026"
     const match = serviceDateString.match(/(\d{1,2})\s*(?:de\s+)?([a-zA-ZáéíóúÁÉÍÓÚñÑ]+)/i);
     if (match) {
       dateHeader = `DOMINGO ${match[1]} DE ${match[2]}`.toUpperCase();
     } else {
-      // YYYY-MM-DD
       const dateObj = new Date(serviceDateString + (serviceDateString.length === 10 ? 'T12:00:00' : ''));
       if (!isNaN(dateObj.getTime())) {
         const day = dateObj.getDate();
@@ -28,19 +25,44 @@ export function formatSetlistForSocialShare(slotsOrItems, serviceDateString) {
     }
   }
 
-  // 2. Songs grouping
+  // Capitalizar la primera letra de cada palabra
+  const formatCapitalized = (text) => {
+    if (!text || typeof text !== 'string') return '';
+    return text
+      .trim()
+      .split(/\s+/)
+      .map(word => {
+        if (!word) return '';
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
+      .join(' ');
+  };
+
+  // 2. Agrupación de canciones
   const alabanzas = [];
   const adoraciones = [];
 
   slotsOrItems.forEach(item => {
     const song = item.song || item;
-    if (!song || !song.title) return;
+    if (!song || (!song.title && !item.title)) return;
 
-    const title = (song.title || '').trim().toLowerCase();
-    const artist = (song.artist || '').trim().toLowerCase();
-    const line = `${title}/${artist}`;
+    // Buscar si falta el artista (por ejemplo en historiales anteriores)
+    const songId = song.songId || song.id || item.songId || item.id;
+    const foundInAll = allSongs.find(s => s.id === songId);
 
-    const category = item.category || song.category;
+    const rawTitle = song.title || item.title || foundInAll?.title || '';
+    const rawArtist = song.artist || item.artist || foundInAll?.artist || '';
+
+    const formattedTitle = formatCapitalized(rawTitle);
+    const formattedArtist = formatCapitalized(rawArtist);
+
+    // Formato con viñeta de punto y autor: • Cancion / Autor
+    let line = `• ${formattedTitle}`;
+    if (formattedArtist) {
+      line += ` / ${formattedArtist}`;
+    }
+
+    const category = item.category || song.category || foundInAll?.category;
     if (category === 'adoracion') {
       adoraciones.push(line);
     } else {

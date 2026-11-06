@@ -1,12 +1,24 @@
-import React from 'react';
-import { Calendar, Copy, Eye, Music2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Calendar, Copy, Eye, Music2, Edit3, Share2, Check, BookOpen } from 'lucide-react';
 import { CATEGORIES } from '../mockData';
+import { formatSetlistForSocialShare } from '../utils/shareFormatter';
 
 export default function SundayHistory({
   history,
+  allSongs = [],
   onLoadHistoricalSetlist,
-  onViewSongLyrics
+  onViewSongLyrics,
+  onOpenSundayInAtril
 }) {
+  const [copiedId, setCopiedId] = useState(null);
+
+  const handleCopyHistory = (record) => {
+    const text = formatSetlistForSocialShare(record.setlist, record.date, allSongs);
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(record.id);
+      setTimeout(() => setCopiedId(null), 2500);
+    });
+  };
   return (
     <div className="bg-white dark:bg-midnight-900 border border-slate-200 dark:border-midnight-800 rounded-3xl p-6 md:p-8 shadow-xl dark:shadow-2xl transition-colors duration-200">
       
@@ -65,17 +77,39 @@ export default function SundayHistory({
                   )}
                 </div>
 
-                {/* Quick Action: Re-use setlist */}
-                {onLoadHistoricalSetlist && (
+                {/* Quick Actions: Share WhatsApp & Modify list & Open in Atril */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {onOpenSundayInAtril && (
+                    <button
+                      onClick={() => onOpenSundayInAtril(record)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm active:scale-95 transition-all"
+                      title="Abrir este culto en el Modo Atril para tocar"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      <span>Modo Atril</span>
+                    </button>
+                  )}
+
                   <button
-                    onClick={() => onLoadHistoricalSetlist(record)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-midnight-900 hover:bg-indigo-50 dark:hover:bg-midnight-800 text-indigo-600 dark:text-sky-400 border border-slate-200 dark:border-midnight-700 transition-all shadow-sm"
-                    title="Cargar esta estructura de cantos en el Armador"
+                    onClick={() => handleCopyHistory(record)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-midnight-900 hover:bg-emerald-50 dark:hover:bg-midnight-800 text-emerald-600 dark:text-emerald-400 border border-slate-200 dark:border-midnight-700 transition-all shadow-sm active:scale-95"
+                    title="Copiar lista formateada para WhatsApp"
                   >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Usar como Plantilla</span>
+                    {copiedId === record.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Share2 className="w-3.5 h-3.5" />}
+                    <span>{copiedId === record.id ? '¡Copiado!' : 'Copiar WhatsApp'}</span>
                   </button>
-                )}
+
+                  {onLoadHistoricalSetlist && (
+                    <button
+                      onClick={() => onLoadHistoricalSetlist(record)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-midnight-900 hover:bg-slate-100 dark:hover:bg-midnight-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-midnight-700 transition-all shadow-sm active:scale-95"
+                      title="Cargar esta lista en el Armador para modificarla"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Modificar lista</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Songs Breakdown (Supports any number of songs) */}
@@ -90,7 +124,7 @@ export default function SundayHistory({
                     return (
                       <div
                         key={idx}
-                        onClick={() => onViewSongLyrics?.(item.songId)}
+                        onClick={() => onOpenSundayInAtril ? onOpenSundayInAtril(record, item.songId) : onViewSongLyrics?.(item.songId)}
                         className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer group/song ${
                           isAlabanza
                             ? 'bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/20 hover:border-amber-500/40'

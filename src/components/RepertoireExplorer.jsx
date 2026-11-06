@@ -65,6 +65,17 @@ export default function RepertoireExplorer({
       });
   }, [songs, searchTerm, selectedCategory, selectedRotation, sortBy]);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategory, selectedRotation, sortBy]);
+
+  const totalPages = Math.ceil(filteredAndSortedSongs.length / PAGE_SIZE);
+  const paginatedSongs = filteredAndSortedSongs.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
   const resetFilters = () => {
     setSearchTerm('');
     setSelectedCategory('all');
@@ -223,7 +234,7 @@ export default function RepertoireExplorer({
             </button>
           </div>
         ) : (
-          filteredAndSortedSongs.map((song) => (
+          paginatedSongs.map((song) => (
             <SongCard
               key={song.id}
               song={song}
@@ -235,6 +246,44 @@ export default function RepertoireExplorer({
           ))
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="pt-4 border-t border-slate-200 dark:border-midnight-800 flex items-center justify-between gap-2">
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+            {((currentPage - 1) * PAGE_SIZE) + 1}–{Math.min(currentPage * PAGE_SIZE, filteredAndSortedSongs.length)} de {filteredAndSortedSongs.length} cantos
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="p-1.5 rounded-xl bg-slate-100 dark:bg-midnight-950 border border-slate-200 dark:border-midnight-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-midnight-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-7 h-7 rounded-xl text-xs font-bold transition-all ${
+                  page === currentPage
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'bg-slate-100 dark:bg-midnight-950 border border-slate-200 dark:border-midnight-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-midnight-800'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="p-1.5 rounded-xl bg-slate-100 dark:bg-midnight-950 border border-slate-200 dark:border-midnight-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-midnight-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
