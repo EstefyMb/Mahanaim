@@ -1,22 +1,20 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Music2, ArrowUpDown, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Search, Music2, ArrowUpDown, Sparkles, Plus } from 'lucide-react';
 import SongCard from './SongCard';
 import { CATEGORIES } from '../mockData';
 
-const PAGE_SIZE = 6;
-
 export default function RepertoireExplorer({
-  songs,
+  songs = [],
   selectedSongIds = new Set(),
   onAddToSetlist,
   onViewLyrics,
-  onEditSong
+  onEditSong,
+  onOpenNewSongModal
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedRotation, setSelectedRotation] = useState('all');
   const [sortBy, setSortBy] = useState('rotation_desc'); // Default: Regla de oro (más tiempo sin tocarse primero)
-  const [currentPage, setCurrentPage] = useState(1);
 
   // Filter and sort songs
   const filteredAndSortedSongs = useMemo(() => {
@@ -64,17 +62,6 @@ export default function RepertoireExplorer({
         return 0;
       });
   }, [songs, searchTerm, selectedCategory, selectedRotation, sortBy]);
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, selectedCategory, selectedRotation, sortBy]);
-
-  const totalPages = Math.ceil(filteredAndSortedSongs.length / PAGE_SIZE);
-  const paginatedSongs = filteredAndSortedSongs.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
-  );
 
   const resetFilters = () => {
     setSearchTerm('');
@@ -221,20 +208,45 @@ export default function RepertoireExplorer({
         </div>
       </div>
 
-      {/* Song Cards List */}
-      <div className="flex-1 overflow-y-auto mt-4 space-y-3 pr-1 min-h-[400px]">
+      {/* Song Cards List: Limitado visualmente a 5 canciones con barra de desplazamiento hacia abajo */}
+      <div className="flex-1 mt-4 space-y-2.5 pr-1 repertoire-5-scroll">
         {filteredAndSortedSongs.length === 0 ? (
-          <div className="p-12 text-center text-slate-400">
-            <p className="text-sm font-semibold">No se encontraron cantos con los filtros actuales.</p>
-            <button
-              onClick={resetFilters}
-              className="mt-3 text-xs text-indigo-600 dark:text-sky-400 font-bold underline"
-            >
-              Limpiar filtros
-            </button>
+          <div className="py-12 px-6 text-center text-slate-400">
+            {songs.length === 0 ? (
+              <div className="space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-sky-400 flex items-center justify-center mx-auto">
+                  <Music2 className="w-6 h-6" />
+                </div>
+                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  Tu repertorio está en blanco
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+                  Comienza agregando canciones a tu catálogo para empezar a armar tus listas dominicales.
+                </p>
+                {onOpenNewSongModal && (
+                  <button
+                    onClick={onOpenNewSongModal}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Agregar Primera Canción</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm font-semibold">No se encontraron cantos con los filtros actuales.</p>
+                <button
+                  onClick={resetFilters}
+                  className="mt-3 text-xs text-indigo-600 dark:text-sky-400 font-bold underline"
+                >
+                  Limpiar filtros
+                </button>
+              </div>
+            )}
           </div>
         ) : (
-          paginatedSongs.map((song) => (
+          filteredAndSortedSongs.map((song) => (
             <SongCard
               key={song.id}
               song={song}
@@ -247,41 +259,13 @@ export default function RepertoireExplorer({
         )}
       </div>
 
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="pt-4 border-t border-slate-200 dark:border-midnight-800 flex items-center justify-between gap-2">
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-            {((currentPage - 1) * PAGE_SIZE) + 1}–{Math.min(currentPage * PAGE_SIZE, filteredAndSortedSongs.length)} de {filteredAndSortedSongs.length} cantos
+      {/* Indicador de 5 canciones visibles */}
+      {filteredAndSortedSongs.length > 5 && (
+        <div className="pt-3 mt-2 border-t border-slate-200 dark:border-midnight-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+          <span className="font-semibold">Mostrando 5 canciones a la vez</span>
+          <span className="text-indigo-600 dark:text-sky-400 font-medium">
+            Desliza la barra para ver las {filteredAndSortedSongs.length} canciones ↓
           </span>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="p-1.5 rounded-xl bg-slate-100 dark:bg-midnight-950 border border-slate-200 dark:border-midnight-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-midnight-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`w-7 h-7 rounded-xl text-xs font-bold transition-all ${
-                  page === currentPage
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'bg-slate-100 dark:bg-midnight-950 border border-slate-200 dark:border-midnight-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-midnight-800'
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="p-1.5 rounded-xl bg-slate-100 dark:bg-midnight-950 border border-slate-200 dark:border-midnight-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-midnight-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
         </div>
       )}
     </div>

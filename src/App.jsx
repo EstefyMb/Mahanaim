@@ -15,7 +15,7 @@ import {
   SUNDAY_HISTORY, 
   DEFAULT_CHURCH_SETTINGS 
 } from './mockData';
-import { CheckCircle2, Info, PartyPopper } from 'lucide-react';
+import { CheckCircle2, Info, PartyPopper, LogOut, ShieldCheck } from 'lucide-react';
 
 // Firebase Firestore
 import { db } from './firebase';
@@ -32,6 +32,25 @@ import {
 
 // Servicio Cloud Firestore de la Iglesia
 import { getStoredSession, saveStoredSession, logoutChurch } from './services/firebaseService';
+
+function getCachedChurchData(churchId) {
+  if (!churchId) return null;
+  try {
+    const raw = localStorage.getItem(`worship_cache_${churchId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setCachedChurchData(churchId, data) {
+  if (!churchId || !data) return;
+  try {
+    localStorage.setItem(`worship_cache_${churchId}`, JSON.stringify(data));
+  } catch (e) {
+    console.warn('Error al guardar cache local:', e);
+  }
+}
 
 export default function App() {
   // 1. Theme State
@@ -59,17 +78,67 @@ export default function App() {
 
   const activeChurchId = session?.churchId || null;
 
-  // Estados principales de la Iglesia
-  const [churchSettings, setChurchSettings] = useState(DEFAULT_CHURCH_SETTINGS);
-  const [songs, setSongs] = useState([]);
-  const [slots, setSlots] = useState([]);
-  const [history, setHistory] = useState([]);
+  // Cargar datos en caché de forma inmediata si existen para esta iglesia (elimina parpadeos en blanco)
+  const initialCache = activeChurchId ? getCachedChurchData(activeChurchId) : null;
+
+  // Estados principales de la Iglesia (hidratados al instante con cache o sesión para no mostrar nombres por defecto)
+  const [churchSettings, setChurchSettings] = useState(() => {
+    if (initialCache?.settings) return initialCache.settings;
+    if (session?.churchName) {
+      return { ...DEFAULT_CHURCH_SETTINGS, name: session.churchName };
+    }
+    return DEFAULT_CHURCH_SETTINGS;
+  });
+
+  const [songs, setSongs] = useState(() => {
+    if (Array.isArray(initialCache?.songs)) return initialCache.songs;
+    return [];
+  });
+
+  const [slots, setSlots] = useState(() => {
+    if (Array.isArray(initialCache?.slots)) return initialCache.slots;
+    return [];
+  });
+
+  const [history, setHistory] = useState(() => {
+    if (Array.isArray(initialCache?.history)) return initialCache.history;
+    return [];
+  });
+
+  const [isDataLoaded, setIsDataLoaded] = useState(() => Boolean(initialCache));
 
   // ==========================================
   // SINCRONIZACIÓN EN TIEMPO REAL CON FIRESTORE
   // ==========================================
   useEffect(() => {
-    if (!activeChurchId) return;
+    if (!activeChurchId) {
+      setSongs([]);
+      setSlots([]);
+      setHistory([]);
+      return;
+    }
+
+    // Al cambiar o entrar de iglesia, sincronizar con su caché propio o inicializar en blanco
+    const cached = getCachedChurchData(activeChurchId);
+    if (cached) {
+      if (cached.settings) setChurchSettings(cached.settings);
+      setSongs(Array.isArray(cached.songs) ? cached.songs : []);
+      setSlots(Array.isArray(cached.slots) ? cached.slots : []);
+      setHistory(Array.isArray(cached.history) ? cached.history : []);
+      setIsDataLoaded(true);
+    } else {
+      // Iglesia nueva sin caché: arrancar 100% en blanco
+      setSongs([]);
+      setSlots([
+        { id: 'slot-1', category: 'alabanza', song: null },
+        { id: 'slot-2', category: 'alabanza', song: null },
+        { id: 'slot-3', category: 'alabanza', song: null },
+        { id: 'slot-4', category: 'adoracion', song: null },
+        { id: 'slot-5', category: 'adoracion', song: null }
+      ]);
+      setHistory([]);
+      setIsDataLoaded(false);
+    }
 
     // Referencia al documento de la iglesia en Firestore: /churches/{churchId}
     const churchDocRef = doc(db, "churches", activeChurchId);
@@ -80,18 +149,33 @@ export default function App() {
       (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
+          const nextSettings = data.settings || (session?.churchName ? { ...DEFAULT_CHURCH_SETTINGS, name: session.churchName } : null);
+          const nextSongs = Array.isArray(data.songs) ? data.songs : [];
+          const nextSlots = Array.isArray(data.slots) ? data.slots : [];
+          const nextHistory = Array.isArray(data.history) ? data.history : [];
+
           if (data.settings) setChurchSettings(data.settings);
-          
-          // Respetamos los datos en la nube sin borrar nada
-          if (Array.isArray(data.songs)) setSongs(data.songs);
-          if (Array.isArray(data.slots)) setSlots(data.slots);
-          if (Array.isArray(data.history)) setHistory(data.history);
+          setSongs(nextSongs);
+          setSlots(nextSlots);
+          setHistory(nextHistory);
+
+          // Actualizar caché local para recargas instantáneas sin parpadeo
+          setCachedChurchData(activeChurchId, {
+            settings: data.settings || nextSettings,
+            songs: nextSongs,
+            slots: nextSlots,
+            history: nextHistory
+          });
+
+          setIsDataLoaded(true);
         } else {
           console.warn("Documento de la iglesia en proceso de lectura:", activeChurchId);
+          setIsDataLoaded(true);
         }
       },
       (error) => {
         console.error("Error en conexión en tiempo real con Firestore:", error);
+        setIsDataLoaded(true);
       }
     );
 
@@ -113,22 +197,46 @@ export default function App() {
   const handleSaveSettings = (newSettings) => {
     setChurchSettings(newSettings);
     updateCloudChurchData({ settings: newSettings });
+    setCachedChurchData(activeChurchId, {
+      settings: newSettings,
+      songs,
+      slots,
+      history
+    });
     showToast('Configuración e identidad de la iglesia guardadas en la nube.', 'success');
   };
 
   const persistSongs = (updatedSongs) => {
     setSongs(updatedSongs);
     updateCloudChurchData({ songs: updatedSongs });
+    setCachedChurchData(activeChurchId, {
+      settings: churchSettings,
+      songs: updatedSongs,
+      slots,
+      history
+    });
   };
 
   const persistSlots = (newSlots) => {
     setSlots(newSlots);
     updateCloudChurchData({ slots: newSlots });
+    setCachedChurchData(activeChurchId, {
+      settings: churchSettings,
+      songs,
+      slots: newSlots,
+      history
+    });
   };
 
   const persistHistory = (newHistory) => {
     setHistory(newHistory);
     updateCloudChurchData({ history: newHistory });
+    setCachedChurchData(activeChurchId, {
+      settings: churchSettings,
+      songs,
+      slots,
+      history: newHistory
+    });
   };
 
   // Helper for upcoming Sunday date
@@ -148,19 +256,67 @@ export default function App() {
   const handleLoginSuccess = (sessionData, churchData) => {
     saveStoredSession(sessionData);
     setSession(sessionData);
+    setChurchSettings(churchData.settings || { ...DEFAULT_CHURCH_SETTINGS, name: churchData.name });
+    setSongs(Array.isArray(churchData.songs) ? churchData.songs : []);
+    setSlots(Array.isArray(churchData.slots) ? churchData.slots : [
+      { id: 'slot-1', category: 'alabanza', song: null },
+      { id: 'slot-2', category: 'alabanza', song: null },
+      { id: 'slot-3', category: 'alabanza', song: null },
+      { id: 'slot-4', category: 'adoracion', song: null },
+      { id: 'slot-5', category: 'adoracion', song: null }
+    ]);
+    setHistory(Array.isArray(churchData.history) ? churchData.history : []);
+    setSelectedSong(null);
+    setActiveSundayHistoryId(null);
+    setIsDataLoaded(true);
     setActiveTab('dashboard');
+    localStorage.setItem('worship_active_tab', 'dashboard');
+    localStorage.removeItem('worship_selected_song_id');
+    localStorage.removeItem('worship_active_sunday_id');
     showToast(`¡Bienvenido al portal de ${churchData.name}!`, 'success');
   };
 
   const handleLogout = () => {
     logoutChurch();
     setSession(null);
+    setChurchSettings(DEFAULT_CHURCH_SETTINGS);
+    setSongs([]);
+    setSlots([]);
+    setHistory([]);
+    setSelectedSong(null);
+    setActiveSundayHistoryId(null);
+    setIsDataLoaded(false);
+    localStorage.removeItem('worship_active_tab');
+    localStorage.removeItem('worship_selected_song_id');
+    localStorage.removeItem('worship_active_sunday_id');
     showToast('Sesión de iglesia cerrada.', 'info');
   };
 
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Recordar la pestaña activa entre recargas (no regresar al inicio)
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('worship_active_tab') || 'dashboard';
+  });
+
+  useEffect(() => {
+    if (activeTab) {
+      localStorage.setItem('worship_active_tab', activeTab);
+    }
+  }, [activeTab]);
+
   const [selectedSong, setSelectedSong] = useState(null);
-  const [activeSundayHistoryId, setActiveSundayHistoryId] = useState(null);
+
+  // Recordar el culto dominical activo si se abrió desde histórico
+  const [activeSundayHistoryId, setActiveSundayHistoryId] = useState(() => {
+    return localStorage.getItem('worship_active_sunday_id') || null;
+  });
+
+  useEffect(() => {
+    if (activeSundayHistoryId) {
+      localStorage.setItem('worship_active_sunday_id', activeSundayHistoryId);
+    } else {
+      localStorage.removeItem('worship_active_sunday_id');
+    }
+  }, [activeSundayHistoryId]);
 
   // Canciones activas en el Modo Atril:
   // Requisito: Van las canciones que están en el historial de ese domingo
@@ -194,14 +350,26 @@ export default function App() {
     return songs;
   }, [activeSundayHistoryId, history, slots, songs]);
 
-  // Mantener una canción seleccionada por defecto para el modo atril
+  // Mantener una canción seleccionada para el modo atril (restaurando de localStorage si existe)
   useEffect(() => {
     if (atrilSongs.length > 0) {
-      if (!selectedSong || !atrilSongs.some(s => s.id === selectedSong.id)) {
+      const savedSongId = localStorage.getItem('worship_selected_song_id');
+      const foundSaved = savedSongId ? atrilSongs.find(s => s.id === savedSongId) : null;
+      if (foundSaved) {
+        if (!selectedSong || selectedSong.id !== foundSaved.id) {
+          setSelectedSong(foundSaved);
+        }
+      } else if (!selectedSong || !atrilSongs.some(s => s.id === selectedSong.id)) {
         setSelectedSong(atrilSongs[0]);
       }
     }
-  }, [atrilSongs, selectedSong]);
+  }, [atrilSongs]);
+
+  useEffect(() => {
+    if (selectedSong?.id) {
+      localStorage.setItem('worship_selected_song_id', selectedSong.id);
+    }
+  }, [selectedSong]);
   const [isSidebarOpenMobile, setIsSidebarOpenMobile] = useState(false);
   const [isNewSongModalOpen, setIsNewSongModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -237,7 +405,15 @@ export default function App() {
         category: song.category,
         song
       };
-      const nextSlots = [...slots, newSlot];
+      const lastIndex = slots.map(s => s.category).lastIndexOf(song.category);
+      const nextSlots = [...slots];
+      if (lastIndex !== -1) {
+        nextSlots.splice(lastIndex + 1, 0, newSlot);
+      } else if (song.category === 'alabanza') {
+        nextSlots.unshift(newSlot);
+      } else {
+        nextSlots.push(newSlot);
+      }
       persistSlots(nextSlots);
       showToast(`"${song.title}" agregada como canción adicional de ${song.category === 'alabanza' ? 'Alabanza' : 'Adoración'}.`, 'success');
     }
@@ -268,6 +444,8 @@ export default function App() {
     const nextSlots = [...slots];
     if (lastIndex !== -1) {
       nextSlots.splice(lastIndex + 1, 0, newSlot);
+    } else if (category === 'alabanza') {
+      nextSlots.unshift(newSlot);
     } else {
       nextSlots.push(newSlot);
     }
@@ -524,16 +702,16 @@ export default function App() {
   };
 
   const handleResetRepertoire = () => {
-    persistSongs(INITIAL_SONGS);
-    persistHistory(SUNDAY_HISTORY);
+    persistSongs([]);
+    persistHistory([]);
     persistSlots([
-      { id: 'slot-1', category: 'alabanza', song: INITIAL_SONGS[0] },
-      { id: 'slot-2', category: 'alabanza', song: INITIAL_SONGS[1] },
-      { id: 'slot-3', category: 'alabanza', song: INITIAL_SONGS[2] },
-      { id: 'slot-4', category: 'adoracion', song: INITIAL_SONGS[7] },
-      { id: 'slot-5', category: 'adoracion', song: INITIAL_SONGS[8] },
+      { id: 'slot-1', category: 'alabanza', song: null },
+      { id: 'slot-2', category: 'alabanza', song: null },
+      { id: 'slot-3', category: 'alabanza', song: null },
+      { id: 'slot-4', category: 'adoracion', song: null },
+      { id: 'slot-5', category: 'adoracion', song: null },
     ]);
-    showToast('Repertorio restablecido a los datos de demostración.', 'info');
+    showToast('Repertorio vaciado correctamente.', 'info');
   };
 
   const filledCount = slots.filter(s => Boolean(s.song)).length;
@@ -546,6 +724,16 @@ export default function App() {
         onToggleTheme={toggleTheme}
         onLoginSuccess={handleLoginSuccess}
       />
+    );
+  }
+
+  if (!isDataLoaded) {
+    return (
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-slate-50 dark:bg-midnight-950 text-slate-800 dark:text-slate-100 transition-colors">
+        <div className="w-10 h-10 border-4 border-indigo-600 dark:border-indigo-400 border-t-transparent rounded-full animate-spin mb-4" />
+        <h2 className="text-base font-black tracking-tight">{session?.churchName || 'Worship Manager'}</h2>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Cargando datos de la iglesia...</p>
+      </div>
     );
   }
 
@@ -664,6 +852,7 @@ export default function App() {
                   onAddToSetlist={handleAddToSetlist}
                   onViewLyrics={handleViewLyrics}
                   onEditSong={(song) => setEditingSong(song)}
+                  onOpenNewSongModal={() => setIsNewSongModalOpen(true)}
                 />
               </div>
             </div>
@@ -707,9 +896,7 @@ export default function App() {
           )}
         </main>
 
-        <footer className="mt-auto border-t border-slate-200 dark:border-midnight-800 py-4 text-center text-xs text-slate-500 dark:text-slate-400 font-medium transition-colors">
-          {churchSettings.name} · Worship PWA · Conectado a Firebase Firestore
-        </footer>
+       
       </div>
 
       <NewSongModal

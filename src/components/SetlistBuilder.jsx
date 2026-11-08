@@ -51,6 +51,7 @@ export default function SetlistBuilder({
   // Group slots into the 2 blocks
   const alabanzaSlots = slots.filter(s => s.category === 'alabanza');
   const adoracionSlots = slots.filter(s => s.category === 'adoracion');
+  const orderedSlots = [...alabanzaSlots, ...adoracionSlots];
 
   const filledSlots = slots.filter(s => Boolean(s.song));
   const filledCount = filledSlots.length;
@@ -172,9 +173,9 @@ export default function SetlistBuilder({
             </span>
           </div>
 
-          {/* Dynamic visual segments */}
+          {/* Dynamic visual segments agrupados en orden: todas las alabanzas primero, luego adoraciones */}
           <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${totalSlotsCount}, minmax(0, 1fr))` }}>
-            {slots.map((slot, idx) => {
+            {orderedSlots.map((slot, idx) => {
               const isFilled = Boolean(slot.song);
               const isAlabanza = slot.category === 'alabanza';
               return (
@@ -187,7 +188,7 @@ export default function SetlistBuilder({
                         : 'bg-indigo-500 dark:bg-sky-400 shadow-[0_0_8px_rgba(99,102,241,0.6)]'
                       : 'bg-slate-200 dark:bg-midnight-800'
                   }`}
-                  title={`${slot.label || `Canto ${idx + 1}`}: ${isFilled ? slot.song.title : 'Vacío'}`}
+                  title={`${isAlabanza ? 'Alabanza' : 'Adoración'} ${idx + 1}: ${isFilled ? slot.song.title : 'Vacío'}`}
                 />
               );
             })}
@@ -247,7 +248,7 @@ export default function SetlistBuilder({
 
           {alabanzaSlots.map((slot, indexInBlock) => {
             const song = slot.song;
-            const globalIndex = slots.findIndex(s => s.id === slot.id);
+            const globalIndex = orderedSlots.findIndex(s => s.id === slot.id);
             const rotation = song ? getRotationStatus(song.daysAgo) : null;
             const canDeleteSlot = alabanzaSlots.length > 1;
             const isDragging = draggedSlotId === slot.id;
@@ -434,7 +435,7 @@ export default function SetlistBuilder({
 
           {adoracionSlots.map((slot, indexInBlock) => {
             const song = slot.song;
-            const globalIndex = slots.findIndex(s => s.id === slot.id);
+            const globalIndex = orderedSlots.findIndex(s => s.id === slot.id);
             const rotation = song ? getRotationStatus(song.daysAgo) : null;
             const canDeleteSlot = adoracionSlots.length > 1;
             const isDragging = draggedSlotId === slot.id;

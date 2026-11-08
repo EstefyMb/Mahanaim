@@ -58,7 +58,7 @@ export default function Header({
 
           <div className="min-w-0 flex-1">
             <h2 className="text-sm sm:text-lg font-black text-slate-900 dark:text-white tracking-tight truncate">
-              {tabTitles[activeTab] || 'Worship Manager'}
+              {tabTitles[activeTab] || ''}
             </h2>
             <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 min-w-0">
               <Calendar className="w-3.5 h-3.5 text-indigo-500 dark:text-sky-400 shrink-0" />

@@ -70,7 +70,6 @@ export async function registerChurch({
     customLogoUrl: customLogoUrl || ''
   };
 
-  const initialSongs = INITIAL_SONGS.map(s => ({ ...s, daysAgo: null, lastPlayedDate: null }));
   const initialSlots = getDefaultSlots();
 
   const newChurchData = {
@@ -83,7 +82,7 @@ export async function registerChurch({
     logoPreset,
     customLogoUrl: customLogoUrl || '',
     settings: initialSettings,
-    songs: initialSongs,
+    songs: [], // Totalmente en blanco al registrar una nueva iglesia
     slots: initialSlots,
     history: [],
     createdAt: new Date().toISOString()

@@ -69,7 +69,8 @@ export default function Sidebar({
 
       {/* Sidebar Container */}
       <aside className={`
-        fixed lg:sticky top-0 left-0 z-50 h-screen w-72 shrink-0
+        fixed inset-y-0 left-0 z-50 w-72 shrink-0 h-screen overflow-y-auto
+        lg:relative lg:inset-auto lg:z-auto lg:h-auto lg:min-h-screen lg:self-stretch lg:overflow-visible
         bg-white dark:bg-midnight-950 border-r border-slate-200 dark:border-midnight-800
         flex flex-col justify-between transition-transform duration-300 ease-in-out
         ${isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -81,7 +82,7 @@ export default function Sidebar({
               <ChurchEmblem settings={churchSettings} size="md" />
               <div className="min-w-0">
                 <h1 className="text-base font-black text-slate-900 dark:text-white truncate tracking-tight">
-                  {churchSettings?.name || 'Worship Manager'}
+                  {churchSettings?.name || session?.churchName || 'Worship Manager'}
                 </h1>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                   {churchSettings?.subtitle || 'Ministerio de Alabanza'}
@@ -100,7 +101,7 @@ export default function Sidebar({
         </div>
 
         {/* Middle: Navigation Items */}
-        <div className="p-4 flex-1 overflow-y-auto space-y-1.5">
+        <div className="p-4 space-y-1.5">
           <div className="px-3 pb-2 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
             Menú Principal
           </div>
@@ -151,8 +152,8 @@ export default function Sidebar({
           })}
         </div>
 
-        {/* Bottom Section: Active Session & Logout Pinned to Bottom (Sin Correo) */}
-        <div className="mt-auto sticky bottom-0 p-4 border-t border-slate-200 dark:border-midnight-800 bg-slate-50/95 dark:bg-midnight-950/95 backdrop-blur-md space-y-2.5 z-10">
+        {/* Bottom Section: Active Session & Logout al final (se mueve con el scroll, sin quedarse congelado) */}
+        <div className="mt-auto p-4 border-t border-slate-200 dark:border-midnight-800 bg-slate-50/50 dark:bg-midnight-950/50 space-y-2.5">
           <div className="flex items-center gap-2 px-1 text-xs text-indigo-600 dark:text-indigo-400 font-bold min-w-0">
             <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
             <span className="truncate">{churchSettings?.name || session?.churchName || 'Sesión Segura Activa'}</span>
@@ -164,7 +165,7 @@ export default function Sidebar({
                 onLogout();
                 onCloseMobile?.();
               }}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 hover:border-rose-500/40 transition-all active:scale-[0.99]"
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 hover:border-rose-500/40 transition-all active:scale-[0.99] cursor-pointer"
               title="Cerrar sesión"
             >
               <LogOut className="w-4 h-4" />
