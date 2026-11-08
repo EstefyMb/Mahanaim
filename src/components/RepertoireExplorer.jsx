@@ -100,7 +100,7 @@ export default function RepertoireExplorer({
               </span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Filtra y ordena por la regla de oro: canciones más descansadas primero.
+              Filtra y ordena: canciones más descansadas primero.
             </p>
           </div>
 
@@ -120,7 +120,7 @@ export default function RepertoireExplorer({
             <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Buscar por título, artista o tono (ej. D, Bethel)..."
+              placeholder="Buscar por título, artista o tono..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl pl-11 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition-all shadow-inner"
@@ -144,10 +144,10 @@ export default function RepertoireExplorer({
                 onChange={(e) => setSortBy(e.target.value)}
                 className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl px-3 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500"
               >
-                <option value="rotation_desc">✨ Más tiempo sin tocarse</option>
-                <option value="rotation_asc">🕒 Más recientes primero</option>
-                <option value="title_asc">🔤 Título A - Z</option>
-                <option value="key_asc">🎵 Tonalidad (C, D, E...)</option>
+                <option value="rotation_desc">Más tiempo sin tocarse</option>
+                <option value="rotation_asc">Más recientes primero</option>
+                <option value="title_asc">Título A - Z</option>
+                <option value="key_asc">Tonalidad</option>
               </select>
             </div>
           </div>

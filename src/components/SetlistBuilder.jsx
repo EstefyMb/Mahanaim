@@ -115,7 +115,6 @@ export default function SetlistBuilder({
         <div className="mb-4 p-3 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-200 flex items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2">
             <span className="font-bold">✏️ Modificando lista guardada</span>
-            <span className="text-[11px] opacity-80">(Al publicar se actualizarán los cambios)</span>
           </div>
           {onCancelEditHistory && (
             <button
@@ -233,7 +232,7 @@ export default function SetlistBuilder({
         <div className="space-y-2.5">
           <div className="flex items-center justify-between px-1">
             <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-              <span>🔥 Primer tiempo</span>
+              <span>Primer tiempo</span>
             </span>
             
             <button
@@ -420,7 +419,7 @@ export default function SetlistBuilder({
         <div className="space-y-2.5 pt-3 border-t border-slate-200 dark:border-midnight-800">
           <div className="flex items-center justify-between px-1">
             <span className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-600 dark:text-sky-400 flex items-center gap-1.5">
-              <span>🕊️ Segundo tiempo</span>
+              <span>Segundo tiempo</span>
             </span>
 
             <button

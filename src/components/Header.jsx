@@ -36,9 +36,9 @@ export default function Header({
   const nextSundayFormatted = getNextSunday();
 
   const tabTitles = {
-    dashboard: 'Armador de Setlist (Regla de Oro)',
+    dashboard: 'Armador de Setlist',
     repertoire: 'Repertorio General de Canciones',
-    viewer: 'Modo Atril (Letras & Acordes)',
+    viewer: 'Modo Atril',
     history: 'Histórico de Cultos Dominicales'
   };
 
@@ -63,7 +63,7 @@ export default function Header({
             <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 min-w-0">
               <Calendar className="w-3.5 h-3.5 text-indigo-500 dark:text-sky-400 shrink-0" />
               <span className="capitalize truncate">
-                Próximo Culto: <strong className="text-slate-700 dark:text-slate-200 font-semibold">{nextSundayFormatted}</strong>
+                Próximo servicio: <strong className="text-slate-700 dark:text-slate-200 font-semibold">{nextSundayFormatted}</strong>
               </span>
             </div>
           </div>

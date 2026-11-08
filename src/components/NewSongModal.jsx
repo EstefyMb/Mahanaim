@@ -83,7 +83,6 @@ export default function NewSongModal({ isOpen, onClose, onSaveSong }) {
             </div>
             <div>
               <h2 className="text-lg font-black text-slate-900 dark:text-white">Agregar Canción al Repertorio</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Ingresa la letra, el tono y ajusta los acordes fácilmente.</p>
             </div>
           </div>
           <button
@@ -99,7 +98,7 @@ export default function NewSongModal({ isOpen, onClose, onSaveSong }) {
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
-                Título del Canto *
+                Título de la canción *
               </label>
               <input
                 type="text"
@@ -141,15 +140,15 @@ export default function NewSongModal({ isOpen, onClose, onSaveSong }) {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
-                  Momento del Culto
+                  Momento del servicio
                 </label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-bold cursor-pointer"
                 >
-                  <option value="alabanza">🔥 Alabanza (Bloque 1)</option>
-                  <option value="adoracion">🕊️ Adoración (Bloque 2)</option>
+                  <option value="alabanza">🔥 Alabanza (Primer tiempo)</option>
+                  <option value="adoracion">🕊️ Adoración (Segundo tiempo)</option>
                 </select>
               </div>
             </div>
@@ -166,30 +165,14 @@ export default function NewSongModal({ isOpen, onClose, onSaveSong }) {
                   title="Convierte automáticamente texto con acordes arriba al formato [Acorde]"
                 >
                   <Wand2 className="w-3.5 h-3.5" />
-                  <span>Ajustar formato LaCuerda</span>
+                  <span>Ajustar formato</span>
                 </button>
               </div>
-
-              {detectedLaCuerda && (
-                <div className="mb-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-2 animate-in fade-in">
-                  <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
-                    <Sparkles className="w-4 h-4 shrink-0 text-amber-500" />
-                    <span>Detectamos acordes arriba en el texto.</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleConvertLaCuerda}
-                    className="px-2.5 py-1 rounded-lg text-xs font-black bg-amber-500 hover:bg-amber-400 text-white shadow-sm transition-all shrink-0 cursor-pointer"
-                  >
-                    Ajustar a corchetes []
-                  </button>
-                </div>
-              )}
 
               {convertedNotice && (
                 <div className="mb-2 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 animate-in fade-in">
                   <Check className="w-3.5 h-3.5" />
-                  <span>¡Acordes convertidos exitosamente a corchetes [X]!</span>
+                  <span>¡Acordes convertidos exitosamente!</span>
                 </div>
               )}
 
@@ -200,9 +183,6 @@ export default function NewSongModal({ isOpen, onClose, onSaveSong }) {
                 placeholder="Pega la letra con acordes aquí..."
                 className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-xl p-3 font-mono text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 leading-relaxed shadow-inner"
               />
-              <span className="text-[11px] text-slate-400 mt-1 block">
-                Tip: Pega desde internet y haz clic en <strong>"Ajustar formato LaCuerda"</strong> para organizarlos con corchetes `[ ]`.
-              </span>
             </div>
           </div>
 

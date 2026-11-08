@@ -30,7 +30,7 @@ export default function Sidebar({
     {
       id: 'dashboard',
       label: 'Armador de Setlist',
-      description: 'Estructura por Bloques',
+      description: 'Estructura de lista',
       icon: Layers,
       badge: `${filledCount}/${totalSlotsCount}`,
       badgeColor: filledCount === totalSlotsCount && totalSlotsCount > 0 ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-midnight-800 text-slate-700 dark:text-slate-300'
@@ -38,20 +38,20 @@ export default function Sidebar({
     {
       id: 'viewer',
       label: 'Modo Atril',
-      description: 'Acordes y transposición',
+      description: 'Letra y Acordes',
       icon: BookOpen
     },
     {
       id: 'repertoire',
       label: 'Repertorio Completo',
-      description: 'Catálogo de alabanza y adoración',
+      description: 'Catálogo de canciones',
       icon: Music,
       badge: `${totalSongsCount}`,
       badgeColor: 'bg-indigo-500/10 text-indigo-600 dark:text-sky-400 border border-indigo-500/20'
     },
     {
       id: 'history',
-      label: 'Histórico de Cultos',
+      label: 'Histórial de servicios',
       description: 'Auditoría de domingos',
       icon: Calendar
     }

@@ -210,11 +210,11 @@ export default function FullRepertoireView({
               onChange={(e) => setSortBy(e.target.value)}
               className="w-full bg-slate-50 dark:bg-midnight-950 border border-slate-300 dark:border-midnight-800 rounded-2xl px-3.5 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500"
             >
-              <option value="rotation_desc">✨ Más tiempo sin tocarse</option>
-              <option value="rotation_asc">🕒 Más recientes primero</option>
-              <option value="title_asc">🔤 Título A - Z</option>
-              <option value="artist_asc">👤 Artista A - Z</option>
-              <option value="key_asc">🎵 Tonalidad (C, D, E...)</option>
+              <option value="rotation_desc">Más tiempo sin tocarse</option>
+              <option value="rotation_asc">Más recientes primero</option>
+              <option value="title_asc">Título A - Z</option>
+              <option value="artist_asc">Artista A - Z</option>
+              <option value="key_asc">Tonalidad (C, D, E...)</option>
             </select>
           </div>
 

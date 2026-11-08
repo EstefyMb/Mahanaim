@@ -95,7 +95,7 @@ export default function EditSongModal({
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
-                Título del Canto *
+                Título de la Canción
               </label>
               <input
                 type="text"
@@ -135,7 +135,7 @@ export default function EditSongModal({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
-                  Momento del Culto
+                  Momento del servicio
                 </label>
                 <select
                   value={category}
@@ -174,7 +174,7 @@ export default function EditSongModal({
                   title="Convierte automáticamente texto con acordes arriba (LaCuerda.net) al formato [Acorde]"
                 >
                   <Wand2 className="w-3.5 h-3.5" />
-                  <span>Ajustar formato LaCuerda</span>
+                  <span>Ajustar formato</span>
                 </button>
               </div>
 
@@ -183,7 +183,7 @@ export default function EditSongModal({
                 <div className="mb-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-2 animate-in fade-in">
                   <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
                     <Sparkles className="w-4 h-4 shrink-0 text-amber-500" />
-                    <span>Detectamos acordes arriba estilo LaCuerda.net.</span>
+                    <span>Detectamos acordes</span>
                   </div>
                   <button
                     type="button"

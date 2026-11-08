@@ -143,8 +143,8 @@ export default function AuthView({
           <div className="inline-flex p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl text-indigo-400 mb-3">
             <Music2 className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-white">Grupo de Alabanza</h1>
-          <p className="text-xs text-slate-400 mt-1">Gestión de repertorio para tu congregación</p>
+          <h1 className="text-2xl font-black tracking-tight text-white">Alaba</h1>
+          
         </div>
 
         {/* Pestañas de Navegación */}
