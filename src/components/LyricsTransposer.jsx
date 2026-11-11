@@ -228,8 +228,8 @@ export default function LyricsTransposer({
     // Section headers like [Intro], [Verso 1], [Coro], [Puente]
     const sectionMatch = line.match(/^\[(Intro|Verso|Coro|Puente|Outro|Pre-Coro|Instrumental)[^\]]*\]$/i);
 
-    // Expresión regular robusta para detectar cualquier acorde (menores, bemoles, sostenidos)
-    const chordRegex = /(\[[A-Ga-g][#b]?[a-zA-Z0-9]*\])/g;
+    // Expresión regular robusta para detectar cualquier acorde (menores, bemoles, sostenidos, notas bajas /)
+    const chordRegex = /(\[[A-G][^\]]*\])/gi;
 
     // Check if line consists purely of chords and whitespace
     const isPureChordLine = line.trim().length > 0 && line.replace(chordRegex, '').trim().length === 0;

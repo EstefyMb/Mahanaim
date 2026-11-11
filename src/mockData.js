@@ -122,9 +122,32 @@ export function transposeChord(chord, semitones) {
 
 export function transposeLyricsAndChords(text, semitones) {
   if (!text || semitones === 0) return text;
-  return text.replace(/\[([A-G][^\]]*)\]/g, (match, chord) => {
-    return `[${transposeChord(chord, semitones)}]`;
+  
+  const lines = text.split(/\r?\n/);
+  const transposedLines = lines.map(line => {
+    if (!line.includes('[')) return line;
+
+    // Transponer acordes preservando exactamente las columnas y espacios originales
+    return line.replace(/(\[[A-G][^\]]*\])(\s*)/g, (match, chordToken, trailingSpaces) => {
+      const chord = chordToken.slice(1, -1);
+      const transposed = transposeChord(chord, semitones);
+      const newChordToken = `[${transposed}]`;
+      const diff = newChordToken.length - chordToken.length;
+
+      let newTrailingSpaces = trailingSpaces;
+      if (diff > 0 && trailingSpaces.length >= diff) {
+        // Si el acorde creció (ej. C -> C#), ajustamos espacios siguientes para no mover el próximo acorde
+        newTrailingSpaces = trailingSpaces.slice(diff);
+      } else if (diff < 0 && trailingSpaces.length > 0) {
+        // Si el acorde encogió (ej. Bb -> B), compensamos espacios para mantener la columna exacta
+        newTrailingSpaces = trailingSpaces + ' '.repeat(Math.abs(diff));
+      }
+
+      return newChordToken + newTrailingSpaces;
+    });
   });
+
+  return transposedLines.join('\n');
 }
 
 // Calcular diferencia de semitonos entre dos notas raíz

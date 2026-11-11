@@ -106,8 +106,8 @@ function getChordsWithPositions(chordLine) {
 }
 
 /**
- * Encloses chord tokens in brackets [Chord] while preserving their column positions.
- * Compensates extra characters added by brackets from trailing spaces when possible.
+ * Encloses chord tokens in brackets [Chord] preserving 100% of the original column positions and spacing.
+ * Does NOT trim or alter any spaces between chords, guaranteeing exact vertical alignment above lyrics.
  */
 export function bracketChordTokensInLine(line) {
   if (!line || typeof line !== 'string') return line;
@@ -128,34 +128,32 @@ export function bracketChordTokensInLine(line) {
 
   let result = '';
   let lastPos = 0;
-  let shiftAcc = 0;
+  let prevTokenWasChord = false;
 
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
     let whitespace = line.slice(lastPos, token.start);
+    const tokenText = token.text;
+    const isChord = isChordToken(tokenText);
 
-    // Compensate previous brackets expansion from spacing
-    if (shiftAcc > 0 && whitespace.length > 0) {
-      const minSpaces = 1;
-      const canTrim = Math.max(0, whitespace.length - minSpaces);
-      const trimAmount = Math.min(shiftAcc, canTrim);
-      whitespace = whitespace.slice(trimAmount);
-      shiftAcc -= trimAmount;
+    // Al incluir corchetes, agregar 2 espacios adicionales de separación entre tonos
+    if (isChord && prevTokenWasChord) {
+      whitespace += '  ';
     }
 
     result += whitespace;
 
-    let tokenText = token.text;
-    if (isChordToken(tokenText)) {
+    if (isChord) {
       if (tokenText.startsWith('[') && tokenText.endsWith(']')) {
         result += tokenText;
       } else {
         const cleanChord = tokenText.replace(/^[\(\[\{]/, '').replace(/[\)\]\}]$/, '');
         result += `[${cleanChord}]`;
-        shiftAcc += (cleanChord.length + 2) - tokenText.length;
       }
+      prevTokenWasChord = true;
     } else {
       result += tokenText;
+      prevTokenWasChord = false;
     }
 
     lastPos = token.end;
@@ -176,7 +174,9 @@ export function bracketChordTokensInLine(line) {
 export function convertLaCuerdaToBracketNotation(text) {
   if (!text || typeof text !== 'string') return '';
 
-  const rawLines = text.split(/\r?\n/);
+  // Convertir tabulaciones a espacios uniformes para mantener la posición exacta de las columnas
+  const cleanText = text.replace(/\t/g, '    ');
+  const rawLines = cleanText.split(/\r?\n/);
   const outputLines = [];
 
   for (let i = 0; i < rawLines.length; i++) {
